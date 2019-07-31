@@ -12,21 +12,24 @@ document.body.appendChild(renderer.domElement)
 
 // 形状
 const geometry = new THREE.BoxGeometry(1, 1, 1)
+
+
 // 素材
-// const material = new THREE.MeshBasicMaterial({color: 0x00ff00})
-// 受光影响的材质
-const material = new THREE.MeshPhongMaterial({color: 0x00ff00})
+const textureLoader = new THREE.TextureLoader().setPath('./images/')
+const urls = [ '1.png', '2.png', '3.png', '4.png', '5.png', '6.png']
+const materials = urls.map(item => new THREE.MeshPhongMaterial({
+  map: textureLoader.load(item)
+}));
+// 图片尺寸得是2的幂
+
 // 物体 = 形状 + 素材
-const cube = new THREE.Mesh(geometry, material)
+const cube = new THREE.Mesh(geometry, materials)
 // 添加物体
 scene.add(cube)
 
-// 光
-const color = 0xFFFFFF;
-const intensity = 1;
-const light = new THREE.DirectionalLight(color, intensity);
-light.position.set(-1, 2, 4);
-scene.add(light);
+// 光照
+const light = new THREE.AmbientLight( 0xffffff )
+scene.add( light );
 
 // 设置摄像机高度
 camera.position.z = 10
