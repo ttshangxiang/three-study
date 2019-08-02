@@ -10,7 +10,8 @@ const camera = new THREE.PerspectiveCamera(
 camera.position.set(0, 10, 0)
 // lookAt的半径
 const R = 10
-camera.lookAt(0, R, -1 * R)
+let lookAtParam = [0, R, -1 * R]
+camera.lookAt(...lookAtParam)
 
 const scene = new THREE.Scene()
 
@@ -45,11 +46,12 @@ function addViewEvent () {
   let offsetY = 0;
   let _x;
   let _y;
-  renderer.domElement.addEventListener('mousedown', mousedown)
+  dom.addEventListener('mousedown', mousedown)
   function mousedown (e) {
     const {pageX, pageY} = e
     _x = pageX
     _y = pageY
+    lookAtParam0 = lookAtParam
     dom.addEventListener('mousemove', mousemove)
     dom.addEventListener('mouseup', mouseup)
   }
@@ -97,29 +99,29 @@ function addViewEvent () {
 addViewEvent()
 
 // 走路
-function addWalkEvent () {
+function walkEvent () {
   window.addEventListener('keypress', e => {
-    console.log(e.keyCode)
+    if (e.keyCode === 87) {}
     switch (e.keyCode) {
       // 前
-      case 119:
+      case 87:
       case 38:
-        camera.position.z -= 1
+        
         break;
       // 后
-      case 115:
+      case 83:
       case 40:
-        camera.position.z += 1
+
         break;
       // 左
-      case 97:
+      case 65:
       case 37:
-        camera.position.x -= 1
+
         break;
       // 右
-      case 100:
+      case 68:
       case 39:
-        camera.position.x += 1
+
         break;
     
       default:
@@ -128,13 +130,10 @@ function addWalkEvent () {
   })
 }
 
-addWalkEvent()
-
 
 function render () {
   requestAnimationFrame(render)
   renderer.render(scene, camera)
-  camera.updateMatrix()
 }
 
 render()
