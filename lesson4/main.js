@@ -8,9 +8,9 @@ const camera = new THREE.PerspectiveCamera(
 
 // 初始摄像机位置
 camera.position.set(0, 10, 0)
-// lookAt的半径
-const R = 10
-camera.lookAt(0, R, -1 * R)
+// lookAt的向量
+const vector = new THREE.Vector3(0, 10, -10)
+camera.lookAt(vector)
 
 const scene = new THREE.Scene()
 
@@ -41,55 +41,36 @@ scene.add(cube)
 // 调整视野
 function addViewEvent () {
   const dom = window
-  let offsetX = 0;
-  let offsetY = 0;
-  let _x;
-  let _y;
+  let _x
+  let _y
+  let _euler
   renderer.domElement.addEventListener('mousedown', mousedown)
   function mousedown (e) {
     const {pageX, pageY} = e
     _x = pageX
     _y = pageY
+    _euler = new THREE.Euler( 0, 0, 0, 'XYZ' )
     dom.addEventListener('mousemove', mousemove)
     dom.addEventListener('mouseup', mouseup)
   }
   function mousemove (e) {
     const {pageX, pageY} = e
     // 增量
-    const x = offsetX + pageX - _x
-    const y_r = offsetY + pageY - _y
-    // y轴的坐标与three坐标相反
-    const y = -1 * y_r
-    // 最终点与原始点滑动的弧度
-    const arc = Math.atan2(y, x)
-    // 最终点与原始点的长度
-    const l = Math.sqrt(x * x + y * y)
+    const x = pageX - _x
+    const y = pageY - _y
 
-    // 滑动的长度与角度的比，鼠标灵敏度
-    const rate = 1 / 10
+    // 灵敏度
+    const rate = 1000
 
-    // 球面偏移弧度，初始点为负数最小值，设为270度
-    const arc2 = (270 + l * rate) * Math.PI / 180
-    // z轴按照长度计算，，采用sin函数
-    const lastZ = Math.sin(arc2) * R
-    
-    // 根据球面偏移弧度与鼠标最终滑动弧度，计算x与y坐标
-    const ll = Math.cos(arc2) * R
-    const lastX = Math.cos(arc) * ll
-    const lastY = Math.sin(arc) * ll
+    // 欧拉角
+    _euler = new THREE.Euler( -y / rate, -x / rate, 0, 'XYZ' );
 
     // 看向这个点
-    camera.lookAt(
-      camera.position.x + lastX,
-      camera.position.y + lastY,
-      camera.position.z + lastZ,
-    )
+    camera.lookAt(vector.clone().applyEuler(_euler))
 
   }
-  function mouseup (e) {
-    const {pageX, pageY} = e
-    offsetX += pageX - _x;
-    offsetY += pageY - _y;
+  function mouseup () {
+    vector.applyEuler(_euler)
     dom.removeEventListener('mousemove', mousemove)
     dom.removeEventListener('mouseup', mouseup)
   }
@@ -98,43 +79,132 @@ addViewEvent()
 
 // 走路
 function addWalkEvent () {
-  window.addEventListener('keypress', e => {
-    console.log(e.keyCode)
+  window.addEventListener('keydown', e => {
     switch (e.keyCode) {
       // 前
-      case 119:
+      case 87:
       case 38:
-        camera.position.z -= 1
+        walkStart('↑')
         break;
       // 后
-      case 115:
+      case 83:
       case 40:
-        camera.position.z += 1
+        walkStart('↓')
         break;
       // 左
-      case 97:
+      case 65:
       case 37:
-        camera.position.x -= 1
+        walkStart('←')
         break;
       // 右
-      case 100:
+      case 68:
       case 39:
-        camera.position.x += 1
+        walkStart('->')
         break;
     
       default:
         break;
     }
   })
+  window.addEventListener('keyup', e => {
+    switch (e.keyCode) {
+      // 前
+      case 87:
+      case 38:
+        walkEnd('↑')
+        break;
+      // 后
+      case 83:
+      case 40:
+        walkEnd('↓')
+        break;
+      // 左
+      case 65:
+      case 37:
+        walkEnd('←')
+        break;
+      // 右
+      case 68:
+      case 39:
+        walkEnd('->')
+        break;
+    
+      default:
+        break;
+    }
+  })
+
+  const dMap = {'↑':0, '↓': 0, '←': 0, '→': 0}
+  function walkStart (direction) {
+    dMap[direction] = 1
+  }
+
+  function walkEnd (direction) {
+    dMap[direction] = 0
+  }
+
+  return function walk () {
+    const r = Object.values(dMap).reduce((t, o) => t + o)
+    // 无方向
+    if (r === 0) {
+      return;
+    }
+    // 反向时消除
+    if (dMap["←"] && dMap["→"]) {
+      dMap["←"] = dMap["→"] = 0
+    }
+    if (dMap["↑"] && dMap["↓"]) {
+      dMap["↑"] = dMap["↓"] = 0
+    }
+
+    // 两个方向同时按时，速度减半
+    let v = 1
+    r > 1 && (v = v / 2)
+
+    // 判断向量
+    let ve = new THREE.Vector3(vector.x, 0, vector.z)
+    // 角度
+    let angle
+    if (r === 1) {// 一键
+      if (dMap["↑"]) {
+        angle = null
+      } else if (dMap["↓"]) {
+        angle = Math.PI / 2
+      } else if (dMap["←"]) {
+        angle = -Math.PI / 4
+      } else if (dMap["→"]) {
+        angle = Math.PI / 4
+      }
+    } else if (r === 2) {// 二键
+      if (dMap["↑"] && dMap["←"]) {
+        angle = -Math.PI / 8
+      } else if (dMap["↑"] && dMap["→"]) {
+        angle = Math.PI / 8
+      } else if (dMap["↓"] && dMap["←"]) {
+        angle = -3 * Math.PI / 8
+      } else if (dMap["↓"] && dMap["→"]) {
+        angle = 3 * Math.PI / 8
+      }
+    }
+
+    // 转向
+    angle && ve.applyEuler(new THREE.Euler(0, angle, 0, 'XYZ'))
+    // 归一
+    ve = ve.normalize()
+
+    // 摄像机和lookat同时新增ve
+    vector.addScaledVector(ve, v)
+    camera.position.addScaledVector(ve, v)
+  }
 }
 
-addWalkEvent()
+const walk = addWalkEvent()
 
 
 function render () {
   requestAnimationFrame(render)
   renderer.render(scene, camera)
-  camera.updateMatrix()
+  walk()
 }
 
 render()

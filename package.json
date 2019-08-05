@@ -1,14 +1,16 @@
 {
-  "name": "threejss",
+  "name": "three-study",
   "version": "1.0.0",
-  "description": "",
+  "description": "three study",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "finalhandler": "^1.1.2",
+    "serve-static": "^1.14.1",
     "three": "^0.106.2"
   }
 }
