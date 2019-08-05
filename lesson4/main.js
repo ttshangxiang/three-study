@@ -47,6 +47,7 @@ function addViewEvent () {
   renderer.domElement.addEventListener('mousedown', mousedown)
   function mousedown (e) {
     const {pageX, pageY} = e
+    // 存
     _x = pageX
     _y = pageY
     _euler = new THREE.Euler( 0, 0, 0, 'XYZ' )
@@ -58,6 +59,9 @@ function addViewEvent () {
     // 增量
     const x = pageX - _x
     const y = pageY - _y
+    // 存
+    _x = pageX
+    _y = pageY
 
     // 灵敏度
     const rate = 1000
@@ -66,11 +70,10 @@ function addViewEvent () {
     _euler = new THREE.Euler( -y / rate, -x / rate, 0, 'XYZ' );
 
     // 看向这个点
-    camera.lookAt(vector.clone().applyEuler(_euler))
+    camera.lookAt(vector.applyEuler(_euler))
 
   }
   function mouseup () {
-    vector.applyEuler(_euler)
     dom.removeEventListener('mousemove', mousemove)
     dom.removeEventListener('mouseup', mouseup)
   }
@@ -99,7 +102,7 @@ function addWalkEvent () {
       // 右
       case 68:
       case 39:
-        walkStart('->')
+        walkStart('→')
         break;
     
       default:
@@ -126,7 +129,7 @@ function addWalkEvent () {
       // 右
       case 68:
       case 39:
-        walkEnd('->')
+        walkEnd('→')
         break;
     
       default:
@@ -157,33 +160,32 @@ function addWalkEvent () {
       dMap["↑"] = dMap["↓"] = 0
     }
 
-    // 两个方向同时按时，速度减半
+    // 速度
     let v = 1
-    r > 1 && (v = v / 2)
 
-    // 判断向量
-    let ve = new THREE.Vector3(vector.x, 0, vector.z)
+    // 判断向量，相机与lookAt的相对向量
+    let ve = new THREE.Vector3(vector.x - camera.position.x, 0, vector.z - camera.position.z)
     // 角度
     let angle
     if (r === 1) {// 一键
       if (dMap["↑"]) {
         angle = null
       } else if (dMap["↓"]) {
-        angle = Math.PI / 2
+        angle = Math.PI
       } else if (dMap["←"]) {
-        angle = -Math.PI / 4
+        angle = Math.PI / 2
       } else if (dMap["→"]) {
-        angle = Math.PI / 4
+        angle = -Math.PI / 2
       }
     } else if (r === 2) {// 二键
       if (dMap["↑"] && dMap["←"]) {
-        angle = -Math.PI / 8
+        angle = Math.PI / 4
       } else if (dMap["↑"] && dMap["→"]) {
-        angle = Math.PI / 8
+        angle = -Math.PI / 4
       } else if (dMap["↓"] && dMap["←"]) {
-        angle = -3 * Math.PI / 8
+        angle = 3 * Math.PI / 4
       } else if (dMap["↓"] && dMap["→"]) {
-        angle = 3 * Math.PI / 8
+        angle = -3 * Math.PI / 4
       }
     }
 
