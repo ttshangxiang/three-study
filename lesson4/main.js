@@ -50,7 +50,6 @@ function addViewEvent () {
     // 存
     _x = pageX
     _y = pageY
-    _euler = new THREE.Euler( 0, 0, 0, 'XYZ' )
     dom.addEventListener('mousemove', mousemove)
     dom.addEventListener('mouseup', mouseup)
   }
@@ -67,11 +66,8 @@ function addViewEvent () {
     const rate = 1000
 
     // 欧拉角
-    _euler = new THREE.Euler( -y / rate, -x / rate, 0, 'XYZ' );
-
-    // 看向这个点
-    camera.lookAt(vector.applyEuler(_euler))
-
+    _euler = new THREE.Euler( -y / rate, -x / rate, 0, 'XYZ' )
+    vector.applyEuler(_euler)
   }
   function mouseup () {
     dom.removeEventListener('mousemove', mousemove)
@@ -169,9 +165,8 @@ function addWalkEvent () {
     let angle
     if (r === 1) {// 一键
       if (dMap["↑"]) {
-        angle = null
       } else if (dMap["↓"]) {
-        angle = Math.PI
+        ve = new THREE.Vector3(camera.position.x - vector.x, 0, camera.position.z - vector.z)
       } else if (dMap["←"]) {
         angle = Math.PI / 2
       } else if (dMap["→"]) {
@@ -207,6 +202,7 @@ function render () {
   requestAnimationFrame(render)
   renderer.render(scene, camera)
   walk()
+  camera.lookAt(vector)
 }
 
 render()
