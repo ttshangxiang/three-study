@@ -65,9 +65,13 @@ function addViewEvent () {
     // 灵敏度
     const rate = 1000
 
+
     // 欧拉角
     _euler = new THREE.Euler( -y / rate, -x / rate, 0, 'XYZ' )
-    vector.applyEuler(_euler)
+    // 相对
+    const relative = new THREE.Vector3(vector.x - camera.position.x, vector.y - camera.position.y, vector.z - camera.position.z).applyEuler(_euler)
+    vector.set(camera.position.x, camera.position.y, camera.position.z)
+    vector.add(relative)
   }
   function mouseup () {
     dom.removeEventListener('mousemove', mousemove)
@@ -190,8 +194,8 @@ function addWalkEvent () {
     ve = ve.normalize()
 
     // 摄像机和lookat同时新增ve
-    vector.addScaledVector(ve, v)
     camera.position.addScaledVector(ve, v)
+    vector.addScaledVector(ve, v)
   }
 }
 
