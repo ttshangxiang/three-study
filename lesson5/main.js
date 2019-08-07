@@ -5,6 +5,10 @@ document.body.appendChild(renderer.domElement)
 const camera = new THREE.PerspectiveCamera(
   45, window.innerWidth / window.innerHeight, 1, 500
 )
+// 初始Y轴
+const Y0 = camera.up.clone()
+// 初始X轴
+const X0 = Y0.clone().applyEuler(new THREE.Euler(0, 0, -Math.PI / 2))
 
 // 初始摄像机位置
 camera.position.y = 10
@@ -23,6 +27,8 @@ function addViewEvent () {
   const dom = window
   let _x
   let _y
+  let lr = 0
+  let tb = 0
   renderer.domElement.addEventListener('mousedown', mousedown)
   function mousedown (e) {
     const {pageX, pageY} = e
@@ -41,15 +47,16 @@ function addViewEvent () {
     _x = pageX
     _y = pageY
 
-    // 灵敏度
-    const rate = 10
+    const rate = 100
 
-    const spherical = new THREE.Spherical().setFromVector3(camera.rotation.toVector3())
-    spherical.phi = THREE.Math.clamp(spherical.phi + y / rate, -1, 1)
-    spherical.theta += x / rate
-    const v = new THREE.Vector3().setFromSpherical(spherical)
+    // 旋转后的Y轴
+    const Y = Y0.clone().applyEuler(camera.rotation)
+    lr += x / rate
+    camera.setRotationFromAxisAngle(Y, lr)
 
-    camera.rotation = new THREE.Euler().setFromVector3(v)
+    // 旋转后的X轴
+    // const X = X0.clone().applyEuler(camera.rotation)
+    // camera.setRotationFromAxisAngle(X, y / rate)
 
   }
   function mouseup () {
