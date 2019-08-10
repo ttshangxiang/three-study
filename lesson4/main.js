@@ -67,7 +67,7 @@ function addViewEvent () {
 
 
     // 欧拉角
-    _euler = new THREE.Euler( -y / rate, -x / rate, 0, 'XYZ' )
+    _euler = new THREE.Euler( -y / rate, -x / rate, 0, 'XYZ' )     // 此处Y轴转动不对！！
     // 相对
     const relative = new THREE.Vector3(vector.x - camera.position.x, vector.y - camera.position.y, vector.z - camera.position.z).applyEuler(_euler)
     vector.set(camera.position.x, camera.position.y, camera.position.z)

@@ -27,8 +27,6 @@ function addViewEvent () {
   const dom = window
   let _x
   let _y
-  let lr = 0
-  let tb = 0
   renderer.domElement.addEventListener('mousedown', mousedown)
   function mousedown (e) {
     const {pageX, pageY} = e
@@ -47,16 +45,21 @@ function addViewEvent () {
     _x = pageX
     _y = pageY
 
-    const rate = 100
+    const rate = 1000
 
+    const after = camera.quaternion.clone()
+    let quaternion = new THREE.Quaternion()
     // 旋转后的Y轴
-    const Y = Y0.clone().applyEuler(camera.rotation)
-    lr += x / rate
-    camera.setRotationFromAxisAngle(Y, lr)
+    const Y = Y0.applyQuaternion(after)
+    quaternion.setFromAxisAngle(Y.normalize(), -x / rate)
+    after.multiply(quaternion)
 
     // 旋转后的X轴
-    // const X = X0.clone().applyEuler(camera.rotation)
-    // camera.setRotationFromAxisAngle(X, y / rate)
+    const X = X0.applyQuaternion(after)
+    quaternion.setFromAxisAngle(X.normalize(), -y / rate)
+    after.multiply(quaternion)
+
+    camera.setRotationFromQuaternion(after)
 
   }
   function mouseup () {

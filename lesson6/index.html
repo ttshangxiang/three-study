@@ -4,10 +4,24 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
-  <title>Quaternion</title>
+  <title>Spherical</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { width: 100%; height: 100% }
+    .cross-hair:after, .cross-hair:before {
+      content: ' ';
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 16px;
+      height: 1px;
+      background: #bbb;
+    }
+    .cross-hair:after {
+      width: 1px;
+      height: 16px;
+    }
   </style>
 </head>
 <body>
