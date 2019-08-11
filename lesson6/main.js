@@ -3,7 +3,7 @@ renderer.setSize(window.innerWidth, window.innerHeight)
 document.body.appendChild(renderer.domElement)
 
 const camera = new THREE.PerspectiveCamera(
-  45, window.innerWidth / window.innerHeight, 1, 500
+  45, window.innerWidth / window.innerHeight, 1, 1000
 )
 
 // 初始摄像机位置
@@ -235,11 +235,110 @@ function addCrossHair () {
   document.body.appendChild(crossHair)
 }
 
+// 开枪吧
+function addFireEvent () {
+  let fireState = false
+  renderer.domElement.addEventListener('mousedown', e => {
+    fireState = true
+    window.addEventListener('mouseup', mouseup)
+  })
+
+  function mouseup () {
+    fireState = false
+    window.removeEventListener('mouseup', mouseup)
+  }
+
+  function createTarget (x, y, z) {
+    const geometry = new THREE.BoxGeometry( 100, 100, 100 );
+    const material = new THREE.MeshBasicMaterial( {color: 0x0000ff} );
+    const cube = new THREE.Mesh( geometry, material );
+    cube.position.set(x, y, z)
+    scene.add(cube)
+    return cube
+  }
+
+  // 靶子
+  const targets = [
+    createTarget(0, 50, 300),
+    createTarget(0, 50, -300),
+    createTarget(400, 50, 300),
+    createTarget(200, 200, 300)
+  ]
+
+  // 子弹
+  const geometry = new THREE.BoxGeometry( 1, 1, 1 );
+  const material = new THREE.MeshBasicMaterial( {color: 0x00ff00} );
+  const cube = new THREE.Mesh( geometry, material );
+
+  // 射击距离
+  const maxDistance = 500
+
+  // 射击速度
+  const v = 10
+
+  let t = 0
+  let bullets = []
+  return function fire () {
+    if (fireState) {
+      if (t % 10 === 0) {
+        const c = cube.clone()
+        c.position.set(camera.position.x, camera.position.y, camera.position.z)
+        const obj = {
+          cube: c,
+          start: camera.position.clone(),
+          direction: new THREE.Vector3().setFromSpherical(spherical),
+        }
+        
+        const raycaster = new THREE.Raycaster(obj.start, obj.direction, 0, maxDistance)
+        let raycasterR = []
+        for (let j = 0; j < targets.length; j++) {
+          const item = targets[j]
+          const r = raycaster.intersectObject(item)
+          raycasterR = raycasterR.concat(r)
+        }
+        obj.raycasterR = raycasterR
+
+        bullets.push(obj)
+        scene.add(c)
+      }
+      t++
+    } else {
+      t = 0
+    }
+
+    for (let i = 0; i < bullets.length; i++) {
+      const item = bullets[i]
+      const d = new THREE.Vector3().subVectors(item.cube.position, item.start).length()
+      if (d < maxDistance) {
+        for (let j = 0; j < item.raycasterR.length; j++) {
+          const r = item.raycasterR[j]
+          // 打中了，两个都消失
+          if (r.object.parent && r.distance < d) {
+            scene.remove(r.object)
+            scene.remove(item.cube)
+            bullets.splice(i, 1)
+            i--
+            return
+          }
+        }
+        item.cube.position.addScaledVector(item.direction, v)
+      } else {
+        scene.remove(item.cube)
+        bullets.splice(i, 1)
+        i--
+      }
+    }
+
+  }
+}
+const fire = addFireEvent()
+
 function render () {
   requestAnimationFrame(render)
   renderer.render(scene, camera)
   walk()
   jump()
+  fire()
   camera.lookAt(new THREE.Vector3().setFromSpherical(spherical).add(camera.position))
 }
 
