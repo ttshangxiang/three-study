@@ -5,13 +5,11 @@ document.body.appendChild(renderer.domElement)
 const camera = new THREE.PerspectiveCamera(
   45, window.innerWidth / window.innerHeight, 1, 500
 )
-// 初始Y轴
-const Y0 = camera.up.clone()
-// 初始X轴
-const X0 = Y0.clone().applyEuler(new THREE.Euler(0, 0, -Math.PI / 2))
 
 // 初始摄像机位置
 camera.position.y = 10
+
+const Y0 = camera.up.clone()
 
 const scene = new THREE.Scene()
 
@@ -46,20 +44,23 @@ function addViewEvent () {
     _y = pageY
 
     const rate = 1000
-
-    const after = camera.quaternion.clone()
+    
     let quaternion = new THREE.Quaternion()
-    // 旋转后的Y轴
-    const Y = Y0.applyQuaternion(after)
-    quaternion.setFromAxisAngle(Y.normalize(), -x / rate)
-    after.multiply(quaternion)
 
-    // 旋转后的X轴
-    const X = X0.applyQuaternion(after)
-    quaternion.setFromAxisAngle(X.normalize(), -y / rate)
-    after.multiply(quaternion)
+    // X
+    let up = new THREE.Vector3(0, 1 ,0).applyMatrix4(camera.matrixWorld)
+    quaternion.setFromAxisAngle(up.normalize(), -x / rate)
+    camera.quaternion.multiply(quaternion)
 
-    camera.setRotationFromQuaternion(after)
+    // Y
+    let direction = new THREE.Vector3()
+    camera.getWorldDirection(direction)
+    // const up = Y0.clone().applyQuaternion(camera.quaternion)
+    up = new THREE.Vector3(0, 1 ,0).applyMatrix4(camera.matrixWorld)
+    direction.cross(up)
+    quaternion.setFromAxisAngle(direction.normalize(), -y / rate)
+    camera.quaternion.multiply(quaternion)
+    camera.updateMatrixWorld()
 
   }
   function mouseup () {
