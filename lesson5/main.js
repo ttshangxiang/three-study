@@ -47,20 +47,12 @@ function addViewEvent () {
     
     let quaternion = new THREE.Quaternion()
 
-    // X
-    let up = new THREE.Vector3(0, 1 ,0).applyMatrix4(camera.matrixWorld)
-    quaternion.setFromAxisAngle(up.normalize(), -x / rate)
-    camera.quaternion.multiply(quaternion)
-
-    // Y
-    let direction = new THREE.Vector3()
+    const v = new THREE.Vector3(x, -y, 0)
+    const direction = new THREE.Vector3()
     camera.getWorldDirection(direction)
-    // const up = Y0.clone().applyQuaternion(camera.quaternion)
-    up = new THREE.Vector3(0, 1 ,0).applyMatrix4(camera.matrixWorld)
-    direction.cross(up)
-    quaternion.setFromAxisAngle(direction.normalize(), -y / rate)
+    v.cross(direction)
+    quaternion.setFromAxisAngle(v.normalize(), Math.sqrt(x * x + y * y) / rate)
     camera.quaternion.multiply(quaternion)
-    camera.updateMatrixWorld()
 
   }
   function mouseup () {
