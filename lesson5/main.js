@@ -6,8 +6,16 @@ const camera = new THREE.PerspectiveCamera(
   45, window.innerWidth / window.innerHeight, 1, 500
 )
 
+window.camera = camera
+
 // 初始摄像机位置
 camera.position.y = 10
+
+// let q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), Math.PI / 2).multiply(camera.quaternion)
+// camera.setRotationFromQuaternion(q)
+
+// q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1), 0.1).multiply(camera.quaternion)
+// camera.setRotationFromQuaternion(q)
 
 const Y0 = camera.up.clone()
 
@@ -43,24 +51,40 @@ function addViewEvent () {
     _x = pageX
     _y = pageY
 
-    const rate = 1000
-    
-    let quaternion = new THREE.Quaternion()
+    if (x === 0 && y === 0) {
+      return
+    }
 
-    const v = new THREE.Vector3(x, -y, 0)
-    const direction = new THREE.Vector3()
-    camera.getWorldDirection(direction)
-    v.cross(direction)
-    quaternion.setFromAxisAngle(v.normalize(), Math.sqrt(x * x + y * y) / rate)
-    camera.quaternion.multiply(quaternion)
+    rotate(x, y)
 
   }
   function mouseup () {
     dom.removeEventListener('mousemove', mousemove)
     dom.removeEventListener('mouseup', mouseup)
   }
+
+  function rotate (x, y) {
+    const rate = 1000
+    let quaternion = new THREE.Quaternion()
+
+    // 左右旋转
+    const up = new THREE.Vector3(0, 1, 0)
+    // up.applyQuaternion(camera.quaternion) // 需要一直朝着0，1，0
+    quaternion.setFromAxisAngle(up, -x / rate)
+    camera.quaternion.premultiply(quaternion)
+    
+    // 上下旋转
+    const left = new THREE.Vector3(1, 0, 0)
+    left.applyQuaternion(camera.quaternion)
+    quaternion.setFromAxisAngle(left, -y / rate)
+    camera.quaternion.premultiply(quaternion)
+
+  }
+
+  return rotate
 }
-addViewEvent()
+const rotate = addViewEvent()
+window.rotate = rotate
 
 // 走路
 function addWalkEvent () {
