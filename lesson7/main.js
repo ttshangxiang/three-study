@@ -1,6 +1,7 @@
 
 const renderer = new THREE.WebGLRenderer()
 renderer.setSize(window.innerWidth, window.innerHeight)
+renderer.domElement.id = 'main'
 document.body.appendChild(renderer.domElement)
 
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000)
@@ -42,32 +43,50 @@ function addClickEvent() {
 
   const v2 = new THREE.Vector2()
   renderer.getSize(v2)
-  // 相机角度的弧度
-  const angle = camera.fov * Math.PI / 180
-  // 焦距
-  const distance = v2.y / 2 / Math.tan(angle / 2)
 
   renderer.domElement.addEventListener('click', e => {
     const { pageX, pageY } = e
 
     // 鼠标相对中心的偏移
-    const x = pageX - v2.x / 2
-    const y = pageY - v2.y / 2
-
-    // 产生的角度
-    const angleX = Math.atan2(x, distance)
-    const angleY = Math.atan2(y, distance)
-
-    // 角度应用到球坐标，获得射线向量
-    const s = spherical.clone()
-    s.set(s.radius, s.phi + angleY, s.theta - angleX)
-    const clickVector = new THREE.Vector3().setFromSpherical(s).normalize()
-
-    // 获得点击射线
-    const raycaster = new THREE.Raycaster(camera.position.clone(), clickVector, 0, 1000)
+    const x = (pageX - v2.x / 2) / (v2.x / 2)
+    const y = (pageY - v2.y / 2) / (v2.y / 2)
+    // 获得点击射线，y为负方向
+    const coords = new THREE.Vector2(x, -y)
+    const raycaster = new THREE.Raycaster()
+    raycaster.far = 1000
+    raycaster.setFromCamera(coords, camera)
     const r = raycaster.intersectObject(whiteBoard)
-    console.log(r)
+
+    r[0] && addText(r[0])
   })
+
+  let font = null
+  function createTexture(text) {
+    const canvas = document.createElement('canvas')
+    canvas.width = 32
+    canvas.height = 32
+    const ctx = canvas.getContext('2d')
+    ctx.font = '28px bold 黑体'
+    ctx.textBaseline = 'top'
+    ctx.fillText(text, 0, 0)
+    document.body.appendChild(canvas)
+    return new THREE.CanvasTexture(canvas)
+  }
+
+  function createSprite (texture) {
+    const spriteMaterial = new THREE.SpriteMaterial({ map: texture, color: 0x666666, depthTest: false})
+    spriteMaterial.sizeAttenuation = false
+    const sprite = new THREE.Sprite(spriteMaterial)
+    return sprite
+  }
+
+  const spriteTexture = createTexture('哈')
+  function addText(r) {
+    const sprite = createSprite(spriteTexture)
+    sprite.position.copy(r.point)
+    sprite.scale.set(0.04, 0.04, 0.04)
+    scene.add(sprite)
+  }
 }
 
 addClickEvent()
