@@ -38,6 +38,9 @@ const whiteBoard = new THREE.Mesh(whiteBoardGeometry, whiteBoardMaterial)
 whiteBoard.position.set(0, 50, -400)
 scene.add(whiteBoard)
 
+// 保存sprite
+const sprites = []
+
 // 点击白板
 function addClickEvent() {
 
@@ -75,7 +78,7 @@ function addClickEvent() {
 
   function createSprite (texture) {
     const spriteMaterial = new THREE.SpriteMaterial({ map: texture, color: 0x666666, depthTest: false})
-    spriteMaterial.sizeAttenuation = false
+    // spriteMaterial.sizeAttenuation = false
     const sprite = new THREE.Sprite(spriteMaterial)
     return sprite
   }
@@ -84,9 +87,18 @@ function addClickEvent() {
   function addText(r) {
     const sprite = createSprite(spriteTexture)
     sprite.position.copy(r.point)
-    sprite.scale.set(0.04, 0.04, 0.04)
+    sprites.push(sprite)
     scene.add(sprite)
   }
+}
+
+function scaleText () {
+  sprites.forEach(sprite => {
+    // 按照距离正比调整缩放
+    const d = camera.position.distanceTo(sprite.position)
+    const scale = d / 20
+    sprite.scale.set(scale, scale, scale)
+  })
 }
 
 addClickEvent()
@@ -95,5 +107,6 @@ function render() {
   requestAnimationFrame(render)
   renderer.render(scene, camera)
   walk()
+  scaleText()
 }
 render()
