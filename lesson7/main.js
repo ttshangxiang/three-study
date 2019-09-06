@@ -4,7 +4,7 @@ renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.domElement.id = 'main'
 document.body.appendChild(renderer.domElement)
 
-const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000)
+const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 1, 1000)
 camera.position.y = 10
 
 const scene = new THREE.Scene()
@@ -69,9 +69,11 @@ function addClickEvent() {
     canvas.width = 32
     canvas.height = 32
     const ctx = canvas.getContext('2d')
-    ctx.font = '28px bold 黑体'
+    ctx.font = '32px bold 黑体'
     ctx.textBaseline = 'top'
     ctx.fillText(text, 0, 0)
+    ctx.rect(0, 0, 31, 31)
+    ctx.stroke()
     document.body.appendChild(canvas)
     return new THREE.CanvasTexture(canvas)
   }
@@ -92,11 +94,25 @@ function addClickEvent() {
   }
 }
 
-function scaleText () {
+// 计算threejs内1单位对应一像素时，物体距离相机的距离
+function computePxDistance () {
+  const v = new THREE.Vector2()
+  renderer.getSize(v)
+  const d = v.y / Math.tan(camera.fov / 2)
+  return d
+}
+
+const pxDistance = computePxDistance()
+
+function scaleText (fontsize) {
+  const direction = new THREE.Vector3()
+  camera.getWorldDirection(direction)
   sprites.forEach(sprite => {
-    // 按照距离正比调整缩放
-    const d = camera.position.distanceTo(sprite.position)
-    const scale = d / 20
+    const v2 = sprite.position.clone().add(camera.position.clone().negate())
+    // 点乘
+    const d = v2.dot(direction)
+    // 使用cos换算距离
+    const scale = fontsize * d / pxDistance
     sprite.scale.set(scale, scale, scale)
   })
 }
@@ -107,6 +123,6 @@ function render() {
   requestAnimationFrame(render)
   renderer.render(scene, camera)
   walk()
-  scaleText()
+  scaleText(64)
 }
 render()
