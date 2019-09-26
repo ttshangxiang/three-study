@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>画个阴影</title>
+  <style>
+    body {
+      margin: 0;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <!-- 场景着色器 -->
+  <script id="3d-vertex-shader" type="x-shader/x-vertex">
+    attribute vec4 a_position;
+    attribute vec3 a_normal;
+    attribute vec2 a_texcoord;
+
+    uniform mat4 u_projection;
+    uniform mat4 u_view;
+    uniform mat4 u_world;
+    uniform vec3 u_lightWorldPosition;
+    uniform mat4 u_worldInverseTranspose;
+    uniform vec3 u_viewWorldPosition;
+    uniform mat4 u_textureMatrix;
+
+    varying vec3 v_normal;
+    varying vec3 v_surfaceToLight;
+    varying vec3 v_surfaceToView;
+    varying vec2 v_texcoord;
+    varying vec4 v_projectedTexcoord;
+
+    void main() {
+      gl_Position = u_projection * u_view * u_world * a_position;
+
+      v_normal = mat3(u_worldInverseTranspose) * a_normal;
+      vec3 surfaceWorldPosition = (u_world * a_position).xyz;
+      v_surfaceToLight = u_lightWorldPosition - surfaceWorldPosition;
+      v_surfaceToView = u_viewWorldPosition - surfaceWorldPosition;
+
+      v_texcoord = a_texcoord;
+      vec4 worldPosition = u_world * a_position;
+      v_projectedTexcoord = u_textureMatrix * worldPosition;
+    }
+  </script>
+  <script id="3d-fragment-shader" type="x-shader/x-fragment">
+    precision mediump float;
+
+    // 调节反光强度
+    uniform float u_shininess;
+    // 光照颜色
+    uniform vec3 u_lightColor;
+    // 高光颜色
+    uniform vec3 u_specularColor;
+    uniform sampler2D u_projectedTexture;
+
+    varying vec3 v_normal;
+    varying vec3 v_surfaceToLight;
+    varying vec3 v_surfaceToView;
+    varying vec2 v_texcoord;
+    varying vec4 v_projectedTexcoord;
+
+    uniform vec4 u_color;
+
+
+    //从rgba这4个分量中重新计算出z值的函数
+    float unpackDepth(const in vec4 rgbaDepth){
+      const vec4 bitShift = vec4(1.0, 1.0/256.0, 1.0/(256.0*256.0), 1.0/(256.0*256.0*256.0));
+      float depth = dot(rgbaDepth, bitShift);
+      return depth;
+    }
+
+    void main() {
+
+      gl_FragColor = u_color;
+
+      // 归一化，因为插值可能不是归一向量
+      vec3 normal = normalize(v_normal);
+
+      vec3 surfaceToLightDirection = normalize(v_surfaceToLight);
+      vec3 surfaceToViewDirection = normalize(v_surfaceToView);
+      // 点到光源与点到相机的向量的中线向量
+      vec3 halfVector = normalize(surfaceToLightDirection + surfaceToViewDirection);
+
+      // 计算点乘，1是正对着，-1是相反
+      float light = dot(normal, surfaceToLightDirection);
+      // 中线与法线越接近，反光越明显
+      float specular = 0.0;
+      if (light > 0.0) {
+        specular = pow(dot(normal, halfVector), u_shininess);
+      }
+
+      // 只将颜色部分（不包含 alpha） 和光照相乘
+      gl_FragColor.rgb *= light * u_lightColor;
+    
+      // 直接和高光相加
+      gl_FragColor.rgb += specular * u_specularColor;
+
+      // 阴影部分
+      vec3 projectedTexcoord = v_projectedTexcoord.xyz / v_projectedTexcoord.w;
+      // 防止马赫带-0.0006
+      float currentDepth = projectedTexcoord.z - 0.0006;
+      bool inRange =
+          projectedTexcoord.x >= 0.0 &&
+          projectedTexcoord.x <= 1.0 &&
+          projectedTexcoord.y >= 0.0 &&
+          projectedTexcoord.y <= 1.0;
+
+      float projectedDepth = texture2D(u_projectedTexture, projectedTexcoord.xy).r;
+      //float projectedDepth = unpackDepth(texture2D(u_projectedTexture, projectedTexcoord.xy)); // 重新计算出z值
+      float shadowLight = (inRange && projectedDepth <= currentDepth) ? 0.0 : 1.0; 
+
+      gl_FragColor.rgb *= shadowLight;
+    }
+  </script>
+
+  <!-- 阴影着色器 -->
+  <script id="color-vertex-shader" type="x-shader/x-vertex">
+    attribute vec4 a_position;
+    uniform mat4 u_projection;
+    uniform mat4 u_view;
+    uniform mat4 u_world;
+    void main() {
+      gl_Position = u_projection * u_view * u_world * a_position;
+    }
+  </script>
+  <script id="color-fragment-shader" type="x-shader/x-fragment">
+    precision mediump float;
+
+    uniform vec4 u_color;
+    void main() {
+      gl_FragColor = u_color;
+
+      // const vec4 bitShift = vec4(1.0, 256.0, 256.0*256.0, 256.0*256.0*256.0);
+      // const vec4 bitMask = vec4(1.0/256.0, 1.0/256.0, 1.0/256.0, 0.0);
+      // vec4 rgbaDepth = fract(gl_FragCoord.z * bitShift);
+      // rgbaDepth -= rgbaDepth.gbaa * bitMask;
+      // gl_FragColor = rgbaDepth; //将灯源视点下的每个顶点的深度值存入绘制的颜色内
+    }
+  </script>
+  <script src="../node_modules/dat.gui/build/dat.gui.js"></script>
+  <script src="../utils/webgl-utils.js"></script>
+  <script src="../utils/m4.js"></script>
+  <script src="./main.js" type="module"></script>
+</body>
+</html>

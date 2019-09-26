@@ -54,9 +54,9 @@ spotLight.penumbra = 0
 spotLight.shadow.mapSize = new THREE.Vector2(1024, 1024)
 spotLight.shadow.camera.far = 1000
 spotLight.shadow.camera.near = 40
-// scene.add(spotLight)
+scene.add(spotLight)
 const lightHelper = new THREE.SpotLightHelper(spotLight)
-// scene.add(lightHelper)
+scene.add(lightHelper)
 
 // dat
 const gui = new dat.GUI();
@@ -66,17 +66,12 @@ const controls = new function () {
   this.z = spotLight.position.z
   this.distance = spotLight.distance
   this.angle = spotLight.angle
-  this.cao = function () {
-    console.log('cao')
-    console.log(spotLight.shadow.camera)
-  }
 }
 gui.add(controls, 'x', -100, 100);
 gui.add(controls, 'y', -100, 100);
 gui.add(controls, 'z', -100, 100);
 gui.add(controls, 'distance', 0, 1000);
 gui.add(controls, 'angle', 0.01, 1);
-gui.add(controls, 'cao');
 
 // scene.fog = new THREE.Fog(0x000000, 0.015, 250)
 
