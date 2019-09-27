@@ -104,11 +104,14 @@ gl.texImage2D(
     gl.TEXTURE_2D,      // target
     0,                  // mip level
     gl.DEPTH_COMPONENT, // internal format
+    // gl.RGBA,
     depthTextureSize,   // width
     depthTextureSize,   // height
     0,                  // border
     gl.DEPTH_COMPONENT, // format
+    // gl.RGBA,
     gl.UNSIGNED_INT,    // type
+    // gl.UNSIGNED_BYTE,
     null);              // data
 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -120,6 +123,7 @@ gl.bindFramebuffer(gl.FRAMEBUFFER, depthFramebuffer);
 gl.framebufferTexture2D(
     gl.FRAMEBUFFER,       // target
     gl.DEPTH_ATTACHMENT,  // attachment point
+    // gl.COLOR_ATTACHMENT0,
     gl.TEXTURE_2D,        // texture target
     depthTexture,         // texture
     0);                   // mip level
@@ -163,7 +167,9 @@ function render () {
   // 灯光视图矩阵
   const l_viewMatrix = m4.inverse(l_cameraMatrix)
 
+  gl.frontFace(gl.CW);
   drawScene(colorProgramInfo, l_viewMatrix, l_cameraMatrix, l_projectionMatrix, m4.identity())
+  gl.frontFace(gl.CCW);
 
   // 绘制到场景
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);

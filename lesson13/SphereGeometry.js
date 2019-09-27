@@ -67,9 +67,7 @@ export default class SphereGeometry {
           // 点
           this.points.push(...face0)
           // 法向量
-          const normal0 = computeNormal(face0)
-          // 三次
-          this.normals.push(normal0, normal0, normal0)
+          this.normals.push(m4.normalize(face0[0]), m4.normalize(face0[1]), m4.normalize(face0[2]))
         }
         if (current[j] !== top) {
           // 面
@@ -78,9 +76,7 @@ export default class SphereGeometry {
           // 点
           this.points.push(...face1)
           // 法向量
-          const normal1 = computeNormal(face1)
-          // 三次
-          this.normals.push(normal1, normal1, normal1)
+          this.normals.push(m4.normalize(face1[0]), m4.normalize(face1[1]), m4.normalize(face1[2]))
         }
       }
     }
