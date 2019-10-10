@@ -61,6 +61,9 @@ function makeTextCanvas(text, width, height) {
   textCtx.textBaseline = "middle";
   textCtx.fillStyle = "red";
   textCtx.clearRect(0, 0, textCtx.canvas.width, textCtx.canvas.height);
+  // textCtx.fillStyle="#ffffff";
+  // textCtx.fillRect(0, 0, textCtx.canvas.width, textCtx.canvas.height);
+  textCtx.fillStyle = "red";
   textCtx.fillText(text, width / 2, height / 2);
   return textCtx.canvas;
 }

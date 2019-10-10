@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
-  <title>画个阴影</title>
+  <title>多个透明物体 - webgl</title>
   <style>
     body {
       margin: 0;
@@ -71,23 +71,6 @@
     uniform vec4 u_color;
 
 
-    //从rgba这4个分量中重新计算出z值的函数
-    float unpackDepth(const in vec4 rgbaDepth){
-      const vec4 bitShift = vec4(1.0, 1.0/256.0, 1.0/(256.0*256.0), 1.0/(256.0*256.0*256.0));
-      float depth = dot(rgbaDepth, bitShift);
-      return depth;
-    }
-
-    float decodeFloat (vec4 color) {
-      const vec4 bitShift = vec4(
-        1.0 / (256.0 * 256.0 * 256.0),
-        1.0 / (256.0 * 256.0),
-        1.0 / 256.0,
-        1
-      );
-      return dot(color, bitShift);
-    }
-
     void main() {
 
       gl_FragColor = u_color;
@@ -119,19 +102,13 @@
 
       // 阴影部分
       vec3 projectedTexcoord = v_projectedTexcoord.xyz / v_projectedTexcoord.w;
-      // 防止马赫带-0.0006
-      float bias = 0.0;
 
-      // bias = max(bias * 10.0 * (1.0 - dot(normal, lightToSurfaceDirection)), bias);
-      float currentDepth = projectedTexcoord.z - bias;
+      float currentDepth = projectedTexcoord.z;
       bool inRange =
           projectedTexcoord.x >= 0.0 &&
           projectedTexcoord.x <= 1.0 &&
           projectedTexcoord.y >= 0.0 &&
           projectedTexcoord.y <= 1.0;
-
-      // float projectedDepth = texture2D(u_projectedTexture, projectedTexcoord.xy).r;
-      // float shadowLight = (inRange && projectedDepth <= currentDepth) ? 0.0 : 1.0; 
 
       float texelSize = 1.0 / 2048.0;
       float shadowLight = 0.0;
@@ -139,13 +116,14 @@
       for (int x = -1; x <= 1; x++) {
         for (int y = -1; y <= 1; y++) {
           // float texelDepth = decodeFloat(texture2D(u_projectedTexture, projectedTexcoord.xy + vec2(x, y) * texelSize));
-          float texelDepth = texture2D(u_projectedTexture, projectedTexcoord.xy + vec2(x, y) * texelSize).r;
+          vec4 texel = texture2D(u_projectedTexture, projectedTexcoord.xy + vec2(x, y) * texelSize);
+          float texelDepth = texel.r;
           shadowLight += currentDepth < texelDepth ? 1.0 : 0.0;
         }
       }
       shadowLight /= 9.0;
 
-      gl_FragColor.rgb *= shadowLight;
+      // gl_FragColor.rgb *= shadowLight;
     }
   </script>
 
@@ -164,33 +142,9 @@
 
     uniform vec4 u_color;
 
-    vec4 encodeFloat (float depth) {
-      const vec4 bitShift = vec4(
-        256 * 256 * 256,
-        256 * 256,
-        256,
-        1.0
-      );
-      const vec4 bitMask = vec4(
-        0,
-        1.0 / 256.0,
-        1.0 / 256.0,
-        1.0 / 256.0
-      );
-      vec4 comp = fract(depth * bitShift);
-      comp -= comp.xxyz * bitMask;
-      return comp;
-    }
+    
     void main() {
-      // gl_FragColor = vec4(gl_FragCoord.z, 0.0, 0.0, 0.0);
 
-      // const vec4 bitShift = vec4(1.0, 256.0, 256.0*256.0, 256.0*256.0*256.0);
-      // const vec4 bitMask = vec4(1.0/256.0, 1.0/256.0, 1.0/256.0, 0.0);
-      // vec4 rgbaDepth = fract(gl_FragCoord.z * bitShift);
-      // rgbaDepth -= rgbaDepth.gbaa * bitMask;
-      // gl_FragColor = rgbaDepth; //将灯源视点下的每个顶点的深度值存入绘制的颜色内
-
-      // gl_FragColor = encodeFloat(gl_FragCoord.z);
       gl_FragColor = u_color;
     }
   </script>
