@@ -87,7 +87,8 @@ const vlist = data.map(item => {
 })
 
 let selfRotate = true
-const facez = new THREE.Vector3(0, 0, 1)
+const xAxis = new THREE.Vector3(1, 0, 0)
+const yAxis = new THREE.Vector3(0, 1, 0)
 let timer
 function rorateTo (item) {
   selfRotate = false
@@ -95,9 +96,15 @@ function rorateTo (item) {
     ii.dom.firstElementChild.style = ''
   })
   item.dom.firstElementChild.style = 'display: block;'
-  const crossV = item.v.clone().cross(facez).normalize()
-  const angle = item.v.angleTo(facez)
-  const q = new THREE.Quaternion().setFromAxisAngle(crossV, angle)
+  
+  const phi = Math.atan2(item.v.z, item.v.x)
+  const theta = Math.asin(item.v.y / earthR)
+
+  const t_phi = Math.PI / 2
+  const t_theta = 0
+  const qx = new THREE.Quaternion().setFromAxisAngle(xAxis, theta - t_theta)
+  const qy = new THREE.Quaternion().setFromAxisAngle(yAxis, phi - t_phi)
+  qx.multiply(qy)
 
   let t = 0
   clearInterval(timer)
@@ -106,7 +113,7 @@ function rorateTo (item) {
       clearInterval(timer)
     }
     t = ( t + 0.01 ) % 1
-    THREE.Quaternion.slerp(earth.quaternion, q, earth.quaternion, t)
+    THREE.Quaternion.slerp(earth.quaternion, qx, earth.quaternion, t)
   }, 10)
 }
 
