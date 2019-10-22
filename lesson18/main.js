@@ -68,11 +68,13 @@ image.addEventListener('load', function () {
 // gui
 const gui = new dat.GUI()
 const controls = new function () {
+  this.step = 8
   this.speed = 4
   this.height = 64
   this.division = true
 }
 
+gui.add(controls, 'step', 8, 64).step(8)
 gui.add(controls, 'speed', 1, 10).step(1)
 gui.add(controls, 'height', 0.5, 64).step(1)
 gui.add(controls, 'division')
@@ -174,7 +176,7 @@ function render(time) {
   // 法线斜率 = -1 / 切线斜率
   const w_height = controls.division ? 1 / controls.height : controls.height
   for (let i = 0; i <= 100; i++) {
-    const step = 8
+    const step = controls.step
     const rad = Math.PI * 2 / step
     for (let j = 0; j <= 100; j++) {
       const x = time * controls.speed + (i % step) * rad
