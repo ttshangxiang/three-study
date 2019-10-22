@@ -74,8 +74,8 @@ const controls = new function () {
   this.height = 4
   this.division = true
   this.linearAngle = 0
-  this.waveX = 50
-  this.waveZ = 50
+  this.waveX = 0
+  this.waveZ = 100
 }
 
 gui.add(controls, 'type', { Linear: 0, Circle: 1 })
@@ -185,7 +185,8 @@ function render(time) {
   // 点(x0, y0)到直线Ax + By + C = 0的距离d = Math.abs(A*x0 + B*y0 + C) / Math.sqrt(A*A + B*B)
   const w_height = controls.division ? 1 / controls.height : controls.height
   const point0 = [controls.waveX, 0, controls.waveZ]
-  const k = Math.tan(controls.linearAngle * Math.PI / 180)
+  const deg = controls.linearAngle * Math.PI / 180
+  const k = Math.tan(deg)
   for (let i = 0; i <= 100; i++) {
     const step = controls.step
     const rad = Math.PI * 2 / step
@@ -199,7 +200,8 @@ function render(time) {
         }
         const x = time * controls.speed - d * rad
         positionData.push(i, w_height * Math.sin(x), j)
-        normalData.push(-w_height * Math.cos(x), 1, 0)
+        const f = -w_height * Math.cos(x)
+        normalData.push(f * Math.cos(deg), 1, -f * Math.sin(deg))
       }
       // 圆形波浪
       else if (controls.type == 1) {
@@ -208,7 +210,9 @@ function render(time) {
         const d = Math.sqrt(dx * dx + dy * dy)
         const x = time * controls.speed - d * rad
         positionData.push(i, w_height * Math.sin(x), j)
-        normalData.push(-w_height * Math.cos(x), 1, 0)
+        const f = -w_height * Math.cos(x)
+        const deg = Math.atan2(dy, dx)
+        normalData.push(f * Math.cos(deg), 1, -f * Math.sin(deg))
       }
     }
   }
