@@ -38,7 +38,7 @@ const shadowFragment = `
     // 阴影部分
     vec3 projectedTexcoord = v_projectedTexcoord.xyz / v_projectedTexcoord.w;
 
-    float currentDepth = projectedTexcoord.z - 0.0009;
+    float currentDepth = projectedTexcoord.z - 0.00098;
     bool inRange =
         projectedTexcoord.x >= 0.0 &&
         projectedTexcoord.x <= 1.0 &&
@@ -94,6 +94,8 @@ export const tilesShader = {
   
   uniform vec3 u_reverseLightDirection;
   uniform sampler2D u_image;
+  uniform float u_no_texture;
+  uniform vec4 u_color;
   
   varying vec3 v_normal;
   varying vec2 v_texcoord;
@@ -102,6 +104,7 @@ export const tilesShader = {
   
   void main() {
     gl_FragColor = texture2D(u_image, v_texcoord);
+    
     vec3 normal = normalize(v_normal);
     float light = dot(normal, u_reverseLightDirection);
     if (v_position.y < 30.0) {
@@ -120,6 +123,7 @@ export const waterShader = {
   attribute vec4 a_position;
   attribute vec3 a_normal;
   attribute vec2 a_texcoord;
+  attribute vec4 a_position2;
   attribute vec3 a_normal2;
   
   uniform mat4 u_projection;
@@ -132,10 +136,10 @@ export const waterShader = {
   ${functions}
   
   void main() {
-    gl_Position = u_projection * u_view * u_world * a_position;
+    gl_Position = u_projection * u_view * u_world * a_position2;
     v_texcoord = a_texcoord;
     
-    v_worldPosition = (u_world * a_position).xyz;
+    v_worldPosition = (u_world * a_position2).xyz;
     v_worldNormal = mat3(u_world) * a_normal2;
   }
   `,
@@ -191,8 +195,10 @@ export const waterShader = {
       refractedColor = getColor(v_worldPosition, refractedRay);
       gl_FragColor = vec4(mix(reflectedColor, refractedColor, (1.0 - fresnel) * length(refractedRay)).rgb, 1.0);
     }
+    
+    float light = dot(worldNormal, u_reverseLightDirection);
 
-    gl_FragColor.rbg *= 0.9;
+    gl_FragColor.rbg *= 0.6 + 0.2 * light;
 
   }
   `
