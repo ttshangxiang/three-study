@@ -68,16 +68,24 @@ image.addEventListener('load', function () {
 // gui
 const gui = new dat.GUI()
 const controls = new function () {
+  this.type = 0
   this.step = 8
   this.speed = 4
-  this.height = 64
+  this.height = 4
   this.division = true
+  this.linearAngle = 0
+  this.waveX = 50
+  this.waveZ = 50
 }
 
+gui.add(controls, 'type', { Linear: 0, Circle: 1 })
 gui.add(controls, 'step', 8, 64).step(8)
 gui.add(controls, 'speed', 1, 10).step(1)
 gui.add(controls, 'height', 0.5, 64).step(1)
 gui.add(controls, 'division')
+gui.add(controls, 'linearAngle', 0, 90).step(1)
+gui.add(controls, 'waveX', 0, 100).step(1)
+gui.add(controls, 'waveZ', 0, 100).step(1)
 
 // 创建阴影深度贴图
 const depthTextureParams = shadow.createDepthTexture(gl)
@@ -174,14 +182,34 @@ function render(time) {
   // Math.sin(time * .1)
   // y = sin(x)的导数是cos(x)，导数就是那点的切线斜率
   // 法线斜率 = -1 / 切线斜率
+  // 点(x0, y0)到直线Ax + By + C = 0的距离d = Math.abs(A*x0 + B*y0 + C) / Math.sqrt(A*A + B*B)
   const w_height = controls.division ? 1 / controls.height : controls.height
+  const point0 = [controls.waveX, 0, controls.waveZ]
+  const k = Math.tan(controls.linearAngle * Math.PI / 180)
   for (let i = 0; i <= 100; i++) {
     const step = controls.step
     const rad = Math.PI * 2 / step
     for (let j = 0; j <= 100; j++) {
-      const x = time * controls.speed + (i % step) * rad
-      positionData.push(i,  w_height * Math.sin(x), j)
-      normalData.push(- w_height * Math.cos(x), 1, 0)
+      // 直线波浪
+      if (controls.type == 0) {
+        let d = i
+        if (k != 0) {
+          const k2 = -1 / k
+          d = Math.abs(k2 * i - j) / Math.sqrt(k2 * k2 + 1)
+        }
+        const x = time * controls.speed - d * rad
+        positionData.push(i, w_height * Math.sin(x), j)
+        normalData.push(-w_height * Math.cos(x), 1, 0)
+      }
+      // 圆形波浪
+      else if (controls.type == 1) {
+        const dx = i - point0[0]
+        const dy = j - point0[2]
+        const d = Math.sqrt(dx * dx + dy * dy)
+        const x = time * controls.speed - d * rad
+        positionData.push(i, w_height * Math.sin(x), j)
+        normalData.push(-w_height * Math.cos(x), 1, 0)
+      }
     }
   }
   const attrib = webglUtils.createAttribsFromArrays(gl, {
