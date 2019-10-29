@@ -35,10 +35,10 @@ export default function getObjects (gl) {
     }
     return { position, indices, normal, texcoord }
   }
-  const waterPlane = createWaterPlane(100, 100, 1, 1)
+  const waterPlane = createWaterPlane(200, 200, 1, 1)
   const waterPlaneBufferInfo = webglUtils.createBufferInfoFromArrays(gl, waterPlane)
   let u_world = m4.identity()
-  u_world = m4.translate(u_world, -50, 30, -50)
+  u_world = m4.translate(u_world, -100, 60, -100)
   const waterObj = {
     buffer: waterPlaneBufferInfo,
     uniforms: {
@@ -97,23 +97,23 @@ export default function getObjects (gl) {
   // 池子，5块板子
   let bottom = m4.identity()
   bottom = m4.translate(bottom, 0, 0, 0)
-  bottom = m4.scale(bottom, 100, 1, 100)
+  bottom = m4.scale(bottom, 200, 1, 200)
   let left = m4.identity()
-  left = m4.translate(left, -50, 20, 0)
+  left = m4.translate(left, -100, 40, 0)
   left = m4.zRotate(left, degToRad(-90))
-  left = m4.scale(left, 40, 1, 100)
+  left = m4.scale(left, 80, 1, 200)
   let right = m4.identity()
-  right = m4.translate(right, 50, 20, 0)
+  right = m4.translate(right, 100, 40, 0)
   right = m4.zRotate(right, degToRad(90))
-  right = m4.scale(right, 40, 1, 100)
+  right = m4.scale(right, 80, 1, 200)
   let near = m4.identity()
-  near = m4.translate(near, 0, 20, 50)
+  near = m4.translate(near, 0, 40, 100)
   near = m4.xRotate(near, degToRad(-90))
-  near = m4.scale(near, 100, 1, 40)
+  near = m4.scale(near, 200, 1, 80)
   let far = m4.identity()
-  far = m4.translate(far, 0, 20, -50)
+  far = m4.translate(far, 0, 40, -100)
   far = m4.xRotate(far, degToRad(90))
-  far = m4.scale(far, 100, 1, 40)
+  far = m4.scale(far, 200, 1, 80)
 
   const tilesObjs = [
     { buffer: tiles[0], uniforms: { u_world: bottom } },

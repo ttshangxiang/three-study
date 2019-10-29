@@ -4,7 +4,7 @@
 function createDepthTexture (gl) {
   // 创建深度纹理
   const depthTexture = gl.createTexture();
-  const depthTextureSize = 2048;
+  const depthTextureSize = 1024;
   gl.bindTexture(gl.TEXTURE_2D, depthTexture);
   gl.texImage2D(
     gl.TEXTURE_2D,      // target
@@ -31,7 +31,7 @@ function createDepthTexture (gl) {
     0);                   // mip level
 
   // 灯光正交矩阵
-  const projectionMatrix = m4.orthographic(-100, 100, -100, 100, 0, 400)
+  const projectionMatrix = m4.orthographic(-200, 200, -200, 200, 0, 800)
 
   // 灯光相机矩阵
   const cameraPosition = [100, 200, 100]

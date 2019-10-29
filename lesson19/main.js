@@ -1,11 +1,12 @@
 
 import addViewEvent from './view.js'
-import { tilesShader, waterShader, shadowShader, skycubeShader } from './shader.js'
+import { tilesShader, waterShader, shadowShader, skycubeShader, waveShadowShader  } from './shader.js'
 import shadow from './shadow.js'
 import getObjects from './objects.js'
 import skycube from './skycube.js'
 import CubeCamera from './cubeCamera.js'
 import addPointClickEvent from './clickPoint.js'
+import waveShadow from './waveShadow.js'
 
 // 添加canvas
 const canvas = document.createElement('canvas')
@@ -30,6 +31,7 @@ const tilesProgramInfo = webglUtils.createProgramInfo(gl, [tilesShader.vertex, t
 const waterProgramInfo = webglUtils.createProgramInfo(gl, [waterShader.vertex, waterShader.fragment])
 const shadowProgrameInfo = webglUtils.createProgramInfo(gl, [shadowShader.vertex, shadowShader.fragment])
 const skycubeProgrameInfo = webglUtils.createProgramInfo(gl, [skycubeShader.vertex, skycubeShader.fragment])
+const waveShadowProgrameInfo = webglUtils.createProgramInfo(gl, [waveShadowShader.vertex, waveShadowShader.fragment])
 
 // 获取物体
 const { waterObj, tilesObjs, sphereObj } = getObjects(gl)
@@ -69,16 +71,7 @@ image.addEventListener('load', function () {
 // gui
 const gui = new dat.GUI()
 const controls = new function () {
-  this.step = 8
-  this.speed = 50
-  this.height = 4
-  this.division = true
 }
-
-gui.add(controls, 'step', 8, 64).step(8)
-gui.add(controls, 'speed', 1, 100).step(1)
-gui.add(controls, 'height', 0.5, 64).step(1)
-gui.add(controls, 'division')
 
 // 创建阴影深度贴图
 const depthTextureParams = shadow.createDepthTexture(gl)
@@ -87,16 +80,19 @@ const depthTextureParams = shadow.createDepthTexture(gl)
 const skyCubeTextureParams = skycube.createSkyCube(gl, render)
 
 // 创建动态贴图
-const cubeCamera = new CubeCamera(gl, 1, 2000)
+// const cubeCamera = new CubeCamera(gl, 1, 2000)
+
+// 创建波浪阴影贴图
+const waveShadowTextureParams = waveShadow.createWaveShadowTexture(gl)
 
 const camera = {
-  position: [0, 100, 100],
+  position: [0, 200, 200],
   target: [0, 0, 0],
   up: [0, 1, 0]
 }
 
 // 光线
-const u_reverseLightDirection = [1, 2, 1]
+const u_reverseLightDirection = m4.normalize([1, 2, 1])
 
 // 绘制场景
 let then = 0;
@@ -139,11 +135,11 @@ function render(time) {
     setClickParams = addPointClickEvent(gl, point => {
       waveList.push({ point, t: then })
     })
-    
+
     setClickParams({
       cross_face: [
-        [-50, 30, -50], [-50, 30, 50], [50, 30, 50],
-        [-50, 30, -50], [50, 30, 50], [50, 30, -50]
+        [-100, 60, -100], [-100, 60, 100], [100, 60, 100],
+        [-100, 60, -100], [100, 60, 100], [100, 60, -100]
       ]
     })
   }
@@ -158,24 +154,37 @@ function render(time) {
   //   viewMatrix, projectionMatrix
   // })
 
-  drawTiles(gl, tilesProgramInfo, projectionMatrix, viewMatrix, depthTexture, textureMatrix)
-
   // 获取天空图
-  const cubeCameraCenter = [0, 30, 0];
-  const cubeCameraTexture = cubeCamera.getTexture(gl, cubeCameraCenter, face => {
-    // skycube.drawSkyCube(gl, skycubeProgrameInfo, skyCubeTextureParams, {
-    //   viewMatrix: face.viewMatrix, projectionMatrix: face.projectionMatrix
-    // })
-    drawTiles(gl, tilesProgramInfo, face.projectionMatrix, face.viewMatrix, depthTexture, textureMatrix)
-  }, imageLoaded)
+  const cubeCameraCenter = [0, 60, 0];
+  // const cubeCameraTexture = cubeCamera.getTexture(gl, cubeCameraCenter, face => {
+  //   drawTiles(gl, tilesProgramInfo, face.projectionMatrix, face.viewMatrix, depthTexture, textureMatrix)
+  // }, imageLoaded)
+
+  const waveDatas = setWavesToTexture(time)
+
+  // 波浪影子
+  waveShadow.drawWaveShadow(gl, waveShadowTextureParams, (projectionMatrix, viewMatrix) => {
+
+    gl.useProgram(waveShadowProgrameInfo.program)
+    webglUtils.setUniforms(waveShadowProgrameInfo, Object.assign({}, waterObj.uniforms, {
+      u_view: viewMatrix,
+      u_projection: projectionMatrix,
+      u_reverseLightDirection: u_reverseLightDirection,
+      u_waveLength: waveList.length,
+      u_waveDatas: waveDatas,
+      u_then: then
+    }))
+
+    webglUtils.setBuffersAndAttributes(gl, waveShadowProgrameInfo, waterObj.buffer)
+
+    gl.drawElements(gl.TRIANGLES, waterObj.buffer.numElements, gl.UNSIGNED_SHORT, 0);
+  }) 
 
   // 绘制到场景
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
 
-  // skycube.drawSkyCube(gl, skycubeProgrameInfo, {buffer: skyCubeTextureParams.buffer, texture: cubeCameraTexture}, {
-  //   viewMatrix: viewMatrix, projectionMatrix: projectionMatrix
-  // })
+  drawTiles(gl, tilesProgramInfo, projectionMatrix, viewMatrix, depthTexture, textureMatrix)
 
   // 水面
   gl.useProgram(waterProgramInfo.program)
@@ -185,15 +194,21 @@ function render(time) {
     u_reverseLightDirection: u_reverseLightDirection,
     u_cameraPosition: camera.position,
     u_cubeCameraCenter: cubeCameraCenter,
-    u_cubeCameraTexture: cubeCameraTexture,
-    u_skybox: skyCubeTextureParams.texture
+    // u_cubeCameraTexture: cubeCameraTexture,
+    u_skybox: skyCubeTextureParams.texture,
+    u_image: texture,
+    u_textureMatrix: textureMatrix,
+    u_projectedTexture: depthTexture,
+    u_waveShadowTexture: waveShadowTextureParams.targetTexture,
+    // u_waveDatas: waveDatas,
+    // u_waveLength: waveList.length,
+    // u_then: then,
+    // u_waveDatas2: waveDatas,
+    // u_waveLength2: waveList.length,
+    // u_then2: then
   }))
 
   webglUtils.setBuffersAndAttributes(gl, waterProgramInfo, waterObj.buffer)
-
-  if (time) {
-    showWaves(waveList, time)
-  }
 
   gl.drawElements(gl.TRIANGLES, waterObj.buffer.numElements, gl.UNSIGNED_SHORT, 0);
 
@@ -210,14 +225,16 @@ function drawTiles(gl, programeInfo, projectionMatrix, viewMatrix, depthTexture,
       u_image: texture,
       u_reverseLightDirection: u_reverseLightDirection,
       u_textureMatrix: textureMatrix,
-      u_projectedTexture: depthTexture
+      u_projectedTexture: depthTexture,
+      u_waveShadowTexture: waveShadowTextureParams.targetTexture
     }))
     webglUtils.setBuffersAndAttributes(gl, programeInfo, o.buffer)
     gl.drawArrays(gl.TRIANGLES, 0, o.buffer.numElements)
   })
 }
 
-function showWaves (waveList, time) {
+function setWavesToTexture (time) {
+
   for (let i = 0; i < waveList.length; i++) {
     // 超过20秒舍弃
     if (time - waveList[i].t > 20) {
@@ -225,53 +242,22 @@ function showWaves (waveList, time) {
       i--
     }
   }
-  if (waveList.length === 0) {
-    return
-  }
 
-  const normalData = []
-  const positionData = []
-  // Math.sin(time * .1)
-  // y = sin(x)的导数是cos(x)，导数就是那点的切线斜率
-  // 法线斜率 = -1 / 切线斜率
-  // 点(x0, y0)到直线Ax + By + C = 0的距离d = Math.abs(A*x0 + B*y0 + C) / Math.sqrt(A*A + B*B)
-  const w_height = controls.division ? 1 / controls.height : controls.height
-  for (let i = 0; i <= 100; i++) {
-    const step = controls.step
-    const rad = Math.PI * 2 / step
-    for (let j = 0; j <= 100; j++) {
-
-      let position =  [i, 0, j]
-      let normal = [0, 1, 0]
-      waveList.forEach(item => {
-        const dx = i - item.point[0] - 50
-        const dy = j - item.point[2] - 50
-        const d = Math.sqrt(dx * dx + dy * dy)
-        const t = time - item.t
-        const x = t * controls.speed - d * rad
-        
-        // 衰弱
-        let h = w_height * Math.pow(1 - t / 20, 3)
-        h = h < 0 ? 0 : h
-        if (d * rad >= t * controls.speed - Math.PI * 2 && d * rad <= t * controls.speed) {
-          position = [i, h * Math.sin(x), j]
-          const f = -h * Math.cos(x)
-          const deg = Math.atan2(dy, dx)
-          normal = [f * Math.cos(deg), 1, -f * Math.sin(deg)]
-        }
-      })
-      positionData.push(...position)
-      normalData.push(...normal)
-    }
+  let datas = []
+  for (let i = 0; i < 400; i++) {
+    datas[i] = 0
   }
-  const attrib = webglUtils.createAttribsFromArrays(gl, {
-    normal: { numComponents: 3, data: normalData },
-    position: { numComponents: 3, data: positionData }
-  });
-  webglUtils.setAttributes(waterProgramInfo, attrib)
+  waveList.forEach((item, index) => {
+    datas[index * 4 + 0] = item.point[0]
+    datas[index * 4 + 1] = item.point[1]
+    datas[index * 4 + 2] = item.point[2]
+    datas[index * 4 + 3] = item.t
+  })
+
+  return datas
 }
 
-addViewEvent(gl, camera, render)
+addViewEvent(gl, camera, () => {})
 
 function run(time) {
   render(time)
