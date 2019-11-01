@@ -71,7 +71,10 @@ image.addEventListener('load', function () {
 // gui
 const gui = new dat.GUI()
 const controls = new function () {
+  this.bounce = false
 }
+
+gui.add(controls, 'bounce')
 
 // 创建阴影深度贴图
 const depthTextureParams = shadow.createDepthTexture(gl)
@@ -235,16 +238,64 @@ function drawTiles(gl, programeInfo, projectionMatrix, viewMatrix, depthTexture,
 
 function setWavesToTexture (time) {
 
+  console.log(waveList.length)
+  const v = 40
+  const step = 8
+  const rad = Math.PI * 2.0 / step
   for (let i = 0; i < waveList.length; i++) {
-    // 超过20秒舍弃
-    if (time - waveList[i].t > 20) {
+    const item = waveList[i]
+    // 初始距离
+    const d0 = item.d0 || 0
+    const t = time - item.t
+    const d = (v * t - 2 * Math.PI) / rad
+    const p = item.point
+    if (!item.times) {
+      item.times = 0
+    }
+    // 距离超过对角线长度，舍弃，反弹次数超过，删除
+    if (d - d0 > 283 || item.times > 4) {
       waveList.splice(i, 1)
       i--
+      continue
+    }
+    if (!controls.bounce) {
+      continue
+    }
+
+    // 计算墙面反弹
+    // -x，x，-z, z到边界，都新增一个与此点镜面的点，t相同，新增的点屏蔽一些反弹方向
+    if (!item.split) {
+      item.split = [1, 1, 1, 1]
+    }
+
+    if (item.split[0] && p[0] - d < -100) {
+      item.split[0] = 0
+      const negz = 100 - p[2] < d
+      const posz = p[2] - (-100) < d
+      waveList.push({point: [p[0] - 2 * d, p[1], p[2]], t: item.t, split: [0, 1, negz, posz], d0: d, times: item.times + 1})
+    }
+    if (item.split[1] && p[0] + d > 100) {
+      item.split[1] = 0
+      const negz = 100 - p[2] < d
+      const posz = p[2] - (-100) < d
+      waveList.push({point: [p[0] + 2 * d, p[1], p[2]], t: item.t, split: [1, 0, negz, posz], d0: d, times: item.times + 1})
+    }
+    if (item.split[2] && p[2] - d < -100) {
+      item.split[2] = 0
+      const negx = 100 - p[0] < d
+      const posx = p[0] - (-100) < d
+      waveList.push({point: [p[0], p[1], p[2] - 2 * d], t: item.t, split: [negx, posx, 0, 1], d0: d, times: item.times + 1})
+    }
+    if (item.split[3] && p[2] + d > 100) {
+      item.split[3] = 0
+      const negx = 100 - p[0] < d
+      const posx = p[0] - (-100) < d
+      waveList.push({point: [p[0], p[1], p[2] + 2 * d], t: item.t, split: [negx, posx, 1, 0], d0: d, times: item.times + 1})
     }
   }
 
   let datas = []
-  for (let i = 0; i < 400; i++) {
+  for (let i = 0; i < 1000; i++) {
     datas[i] = 0
   }
   waveList.forEach((item, index) => {

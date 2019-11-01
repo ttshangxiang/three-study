@@ -20,7 +20,7 @@ float rand(vec2 co){
   return fract(sin(dot(co.xy, vec2(12.9898,78.233))) * 43758.5453);
 }
 
-vec4 getWaveParams (vec3 position, float waveDatas[400], float then, int u_waveLength) {
+vec4 getWaveParams (vec3 position, float waveDatas[1000], float then, int u_waveLength) {
   float PI = 3.1415926;
   float step = 8.0;
   float speed = 40.0;
@@ -50,10 +50,10 @@ vec4 getWaveParams (vec3 position, float waveDatas[400], float then, int u_waveL
       normal2 += vec3(k * dx / d, 1, k * dz / d);
     }
   }
-  // if (change) {
-  //   normal = normal2;
-  // }
-  return vec4(incY, normal2);
+  if (change) {
+    normal = normal2;
+  }
+  return vec4(incY, normal);
 }
 
 vec4 getWallColor (vec3 p, sampler2D u_image) {
@@ -141,10 +141,8 @@ float addWaveShadow (float shadow, vec3 position, vec3 u_reverseLightDirection, 
   
       waveShadowNormal *= 2.0;
       waveShadowNormal -= 1.0;
-      if (waveShadowNormal.x + waveShadowNormal.y + waveShadowNormal.z > 0.001) {
-        float shadowLight = dot(waveShadowNormal, u_reverseLightDirection);
-        return shadowLight;
-      }
+      float shadowLight = dot(waveShadowNormal, u_reverseLightDirection);
+      return shadowLight;
     }
   }
   return 0.0;
@@ -419,7 +417,7 @@ export const waveShadowShader = {
   uniform vec3 u_reverseLightDirection;
 
   uniform int u_waveLength;
-  uniform float u_waveDatas[400];
+  uniform float u_waveDatas[1000];
   uniform float u_then;
   
   varying vec3 v_worldPosition;
