@@ -135,15 +135,48 @@ vec2 lineCrossToFace (vec3 p0, vec3 n, vec3 d, vec3 face0) {
 // 获取被波浪影响的光线
 float getWaveLight (vec3 position, vec3 u_reverseLightDirection, sampler2D u_waveShadowTexture) {
   // 折射
-  vec3 ray = refract(-u_reverseLightDirection, vec3(0, 1.0, 0), ratio);
+  vec3 ray = u_reverseLightDirection;
   vec2 t = intersectAABB(position.xyz, ray, vec3(-100.0, 60.0, -100.0), vec3(100.0, 60.1, 100.0));
   if (t.y > t.x) {
-    vec3 hit = position.xyz + u_reverseLightDirection * t.y;
+    vec3 hit = position.xyz + ray * t.x;
     vec4 info = texture2D(u_waveShadowTexture, vec2(hit.x / 200.0 + 0.5, -hit.z / 200.0 + 0.5));
-    vec3 normal = vec3(info.b, sqrt(1.0 - dot(info.ba, info.ba)), info.a);
-    return dot(normal, u_reverseLightDirection);
+    return info.r * 200.0 * 0.5;
   }
   return 0.0;
+}
+
+// 光线
+vec4 setLight (vec3 position, vec3 v_normal, vec3 u_reverseLightDirection, sampler2D u_waveShadowTexture, sampler2D u_image,
+  vec4 v_projectedTexcoord, sampler2D u_projectedTexture) {
+  
+  vec4 color = getWallColor(position, u_image);
+    
+  // 水下区域染蓝色
+  vec2 coord = vec2(position.x / 200.0 + 0.5, -position.z / 200.0 + 0.5);
+  vec4 info = texture2D(u_waveShadowTexture, coord);
+  if (position.y < 60.0 + info.r * 200.0) {
+    color.rgb *= vec3(0.4, 0.9, 1.0);
+  }
+
+  // 环境光
+  vec3 ambientColor = vec3(0.4, 0.4, 0.4);
+  vec3 ambient = ambientColor * color.rgb;
+
+  // 平行光
+  vec3 lightColor = vec3(0.8, 0.8, 0.8);
+  vec3 normal = normalize(v_normal);
+  float ndotl = max(dot(normal, u_reverseLightDirection), 0.0);
+  vec3 diffuse = lightColor * color.rgb * ndotl;
+
+  // 波浪影响法线
+  float wave = getWaveLight(position, u_reverseLightDirection, u_waveShadowTexture);
+  diffuse += wave * 0.5;
+
+  // 阴影
+  float shadow = setShadow(v_projectedTexcoord, u_projectedTexture);
+  diffuse *= shadow;
+
+  return vec4(diffuse + ambient, color.a);
 }
  
 `
@@ -205,34 +238,7 @@ export const tilesShader = {
   ${functions}
   
   void main() {
-    vec4 color = getWallColor(v_position.xyz, u_image);
-    
-    // 水下区域染蓝色
-    vec2 coord = vec2(v_position.x / 200.0 + 0.5, -v_position.z / 200.0 + 0.5);
-    vec4 info = texture2D(u_waveShadowTexture, coord);
-    if (v_position.y < 60.0 + info.r * 200.0) {
-      color.rgb *= vec3(0.4, 0.9, 1.0);
-    }
-
-    // 环境光
-    vec3 ambientColor = vec3(0.4, 0.4, 0.4);
-    vec3 ambient = ambientColor * color.rgb;
-
-    // 平行光
-    vec3 lightColor = vec3(0.8, 0.8, 0.8);
-    vec3 normal = normalize(v_normal);
-    float ndotl = max(dot(normal, u_reverseLightDirection), 0.0);
-
-    // 波浪影响法线
-    float wave = getWaveLight(v_position.xyz, u_reverseLightDirection, u_waveShadowTexture);
-
-    vec3 diffuse = lightColor * color.rgb * ndotl;
-
-    // 阴影
-    float shadow = setShadow(v_projectedTexcoord, u_projectedTexture);
-    diffuse *= shadow;
-
-    gl_FragColor = vec4(diffuse + ambient, color.a);
+    gl_FragColor = setLight(v_position.xyz, v_normal, u_reverseLightDirection, u_waveShadowTexture, u_image, v_projectedTexcoord, u_projectedTexture);
   }
   `
 }
@@ -300,21 +306,12 @@ export const waterShader = {
           color.rgb *= vec3(0.4, 0.9, 1.0);
         }
       }
-      // 加上阴影
-      vec4 projectedTexcoord = u_textureMatrix * vec4(hit, 1.0);
-      float shadow = setShadow(projectedTexcoord, u_projectedTexture);
-      color.rgb *= 0.8 + 0.2 * setShadow(projectedTexcoord, u_projectedTexture);
 
+      // 添加颜色
       vec3 normal = getWallNormal(hit);
-      float light = dot(normal, u_reverseLightDirection);
-      color.rbg *= 0.8 + 0.2 * light;
+      vec4 projectedTexcoord = u_textureMatrix * vec4(hit, 1.0);
+      return setLight(hit, normal, u_reverseLightDirection, u_waveShadowTexture, u_image, projectedTexcoord, u_projectedTexture);
 
-      // float shadowLight = addWaveShadow(shadow, hit, u_reverseLightDirection, u_waveShadowTexture);
-      // if (shadowLight != 0.0) {
-      //   color.rgb *= shadowLight + 0.3;
-      // }
-
-      return color;
     }
 
   }
