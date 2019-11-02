@@ -169,8 +169,10 @@ vec4 setLight (vec3 position, vec3 v_normal, vec3 u_reverseLightDirection, sampl
   vec3 diffuse = lightColor * color.rgb * ndotl;
 
   // 波浪影响法线
-  float wave = getWaveLight(position, u_reverseLightDirection, u_waveShadowTexture);
-  diffuse += wave * 0.5;
+  if (position.y < 60.0 + info.r * 200.0) {
+    float wave = getWaveLight(position, u_reverseLightDirection, u_waveShadowTexture);
+    diffuse += wave * 0.5;
+  }
 
   // 阴影
   float shadow = setShadow(v_projectedTexcoord, u_projectedTexture);
