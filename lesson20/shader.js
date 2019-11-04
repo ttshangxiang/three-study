@@ -112,7 +112,7 @@ float setShadow (vec4 v_projectedTexcoord, sampler2D u_projectedTexture) {
   // 阴影部分
   vec3 projectedTexcoord = v_projectedTexcoord.xyz / v_projectedTexcoord.w;
 
-  float currentDepth = projectedTexcoord.z + 0.001;
+  float currentDepth = projectedTexcoord.z - 0.001;
   bool inRange =
       projectedTexcoord.x >= 0.0 &&
       projectedTexcoord.x <= 1.0 &&
@@ -153,7 +153,15 @@ float getWaveLight (vec3 position, vec3 u_reverseLightDirection, sampler2D u_wav
   if (t.y > t.x) {
     vec3 hit = position.xyz + ray * t.x;
     vec4 info = texture2D(u_waveShadowTexture, vec2(hit.x / 200.0 + 0.5, -hit.z / 200.0 + 0.5));
-    return info.r * 200.0 * 0.5;
+    // return info.r * 200.0 * 0.5;
+    vec3 normal = vec3(info.b, sqrt(1.0 - dot(info.ba, info.ba)), info.a);
+    float light = max(1.0 - dot(normal, vec3(0, 1.0, 0)), 0.0);
+    // light *= info.r * 200.0;
+    light = pow(light, 1.0 / 2.0);
+    if (light > 0.0) {
+      light *= 1.5;
+    }
+    return light;
   }
   return 0.0;
 }
@@ -182,7 +190,7 @@ vec4 setLight (vec4 color, vec3 position, vec3 v_normal, vec3 u_reverseLightDire
   // 波浪影响法线
   if (position.y < 60.0 + info.r * 200.0) {
     float wave = getWaveLight(position, u_reverseLightDirection, u_waveShadowTexture);
-    diffuse += wave * 0.5;
+    diffuse += wave;
   }
 
   // 阴影
@@ -311,7 +319,6 @@ export const waterShader = {
 
   vec4 getColor (vec3 origin, vec3 ray, bool isAboveWater) {
     // 球
-    vec3 sphereCenter = vec3(0, 20.0, 0);
     float q = intersectSphere(origin, ray, u_sphereCenter, u_sphereRadius);
     vec4 color;
     vec3 hit;
@@ -319,7 +326,7 @@ export const waterShader = {
     if (q < 1.0e6) {
       color = vec4(1.0, 1.0, 1.0, 1.0);
       hit = origin + ray * q;
-      normal = normalize(origin - sphereCenter);
+      normal = normalize(hit - u_sphereCenter);
     } else {
       // 墙
       vec2 t = intersectAABB(origin, ray, vec3(-100, 0, -100), vec3(100, 200, 100));

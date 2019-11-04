@@ -108,6 +108,7 @@ let then = 0;
 let waveList = []
 let setClickParams = null
 const sphereObj_u_world = sphereObj.uniforms.u_world;
+let sphereEvent = true
 function render(time) {
   time *= 0.001;
   const deltaTime = time - then;
@@ -161,6 +162,17 @@ function render(time) {
     n_projectionMatrix: n_projectionMatrix,
     n_viewMatrix: cameraMatrix
   })
+
+  // 球触动水面，产生波浪
+  let attack = false
+  if (controls.sphereY > 60 - sphereObj.sphereRadius && controls.sphereY < 60 + sphereObj.sphereRadius) {
+    attack = !!sphereEvent
+    sphereEvent = false
+  } else {
+    attack = !sphereEvent
+    sphereEvent = true
+  }
+  attack && water.addDrop(controls.sphereX / 100, -controls.sphereX / 100, 0.06, 0.05)
 
   // 更新水波动画(执行两次速度变快)
   water.stepSimulation()
@@ -237,6 +249,7 @@ function drawSphere (gl, programeInfo, projectionMatrix, viewMatrix, depthTextur
     u_projectedTexture: depthTexture,
     // u_waveShadowTexture: waveShadowTextureParams.targetTexture
     u_waveShadowTexture: outputTexture.texture,
+    u_sphereCenter :sphereObj.sphereCenter
   }))
   webglUtils.setBuffersAndAttributes(gl, programeInfo, o.buffer)
   gl.drawArrays(gl.TRIANGLES, 0, o.buffer.numElements)
