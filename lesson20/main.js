@@ -172,7 +172,7 @@ function render(time) {
     attack = !sphereEvent
     sphereEvent = true
   }
-  attack && water.addDrop(controls.sphereX / 100, -controls.sphereX / 100, 0.06, 0.05)
+  attack && water.addDrop(controls.sphereX / 100, -controls.sphereZ / 100, 0.06, 0.05)
 
   // 更新水波动画(执行两次速度变快)
   water.stepSimulation()
