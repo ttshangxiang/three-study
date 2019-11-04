@@ -1,7 +1,7 @@
 
 
 // 创建
-function createDepthTexture (gl) {
+function createDepthTexture (gl, light) {
   // 创建深度纹理
   const depthTexture = gl.createTexture();
   const depthTextureSize = 1024;
@@ -31,10 +31,10 @@ function createDepthTexture (gl) {
     0);                   // mip level
 
   // 灯光正交矩阵
-  const projectionMatrix = m4.orthographic(-200, 200, -200, 200, 0, 800)
+  const projectionMatrix = m4.orthographic(-400, 400, -400, 400, 0, 400)
 
   // 灯光相机矩阵
-  const cameraPosition = [100, 200, 100]
+  const cameraPosition = [light[0] * 200, light[1] * 200, light[2] * 200]
   const target = [0, 0, 0]
   const up = [0, 1, 0]
   const cameraMatrix = m4.lookAt(cameraPosition, target, up)

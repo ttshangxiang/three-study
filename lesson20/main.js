@@ -1,6 +1,6 @@
 
 import addViewEvent from './view.js'
-import { tilesShader, waterShader, shadowShader, skycubeShader  } from './shader.js'
+import { tilesShader, waterShader, shadowShader, skycubeShader, sphereShader  } from './shader.js'
 import shadow from './shadow.js'
 import getObjects from './objects.js'
 import skycube from './skycube.js'
@@ -36,6 +36,7 @@ const tilesProgramInfo = webglUtils.createProgramInfo(gl, [tilesShader.vertex, t
 const waterProgramInfo = webglUtils.createProgramInfo(gl, [waterShader.vertex, waterShader.fragment])
 const shadowProgrameInfo = webglUtils.createProgramInfo(gl, [shadowShader.vertex, shadowShader.fragment])
 const skycubeProgrameInfo = webglUtils.createProgramInfo(gl, [skycubeShader.vertex, skycubeShader.fragment])
+const sphereProgrameInfo = webglUtils.createProgramInfo(gl, [sphereShader.vertex, sphereShader.fragment])
 
 // 获取物体
 const { waterObj, tilesObjs, sphereObj } = getObjects(gl)
@@ -73,12 +74,21 @@ image.addEventListener('load', function () {
 })
 
 // gui
-// const gui = new dat.GUI()
-// const controls = new function () {
-// }
+const gui = new dat.GUI()
+const controls = new function () {
+  this.sphereX = 0
+  this.sphereY = 20
+  this.sphereZ = 0
+}
+gui.add(controls, 'sphereX', -80, 80)
+gui.add(controls, 'sphereY', 20, 120)
+gui.add(controls, 'sphereZ', -80, 80)
+
+// 光线
+const u_reverseLightDirection = m4.normalize([1, 2, -1])
 
 // 创建阴影深度贴图
-const depthTextureParams = shadow.createDepthTexture(gl)
+const depthTextureParams = shadow.createDepthTexture(gl, u_reverseLightDirection)
 
 // 创建天空贴图
 const skyCubeTextureParams = skycube.createSkyCube(gl, render)
@@ -92,14 +102,12 @@ const camera = {
   up: [0, 1, 0]
 }
 
-// 光线
-const u_reverseLightDirection = m4.normalize([1, 2, 1])
-
 // 绘制场景
 let then = 0;
 
 let waveList = []
 let setClickParams = null
+const sphereObj_u_world = sphereObj.uniforms.u_world;
 function render(time) {
   time *= 0.001;
   const deltaTime = time - then;
@@ -113,8 +121,11 @@ function render(time) {
   // 背景
   gl.clearColor(0, 0, 0, 1)
 
+  sphereObj.sphereCenter = [controls.sphereX, controls.sphereY, controls.sphereZ]
+  sphereObj.uniforms.u_world = m4.translate(sphereObj_u_world, ...sphereObj.sphereCenter);
+
   // 生成阴影并返回贴图与矩阵
-  const { depthTexture, textureMatrix } = shadow.drawShadow(gl, shadowProgrameInfo, depthTextureParams, [].concat(tilesObjs))
+  const { depthTexture, textureMatrix } = shadow.drawShadow(gl, shadowProgrameInfo, depthTextureParams, [].concat(tilesObjs, sphereObj))
 
   // 绘制到场景
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -163,7 +174,11 @@ function render(time) {
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
 
+  // 绘制瓷砖
   drawTiles(gl, tilesProgramInfo, projectionMatrix, viewMatrix, depthTexture, textureMatrix, outputTexture)
+
+  // 绘制球
+  drawSphere(gl, sphereProgrameInfo, projectionMatrix, viewMatrix, depthTexture, textureMatrix, outputTexture)
 
   // 水面
   gl.useProgram(waterProgramInfo.program)
@@ -179,6 +194,8 @@ function render(time) {
     u_textureMatrix: textureMatrix,
     u_projectedTexture: depthTexture,
     u_waveShadowTexture: outputTexture.texture,
+    u_sphereCenter :sphereObj.sphereCenter,
+    u_sphereRadius :sphereObj.sphereRadius
   }))
 
   webglUtils.setBuffersAndAttributes(gl, waterProgramInfo, waterObj.buffer)
@@ -205,6 +222,24 @@ function drawTiles(gl, programeInfo, projectionMatrix, viewMatrix, depthTexture,
     webglUtils.setBuffersAndAttributes(gl, programeInfo, o.buffer)
     gl.drawArrays(gl.TRIANGLES, 0, o.buffer.numElements)
   })
+}
+
+function drawSphere (gl, programeInfo, projectionMatrix, viewMatrix, depthTexture, textureMatrix, outputTexture) {
+  const o = sphereObj
+  // 画球
+  gl.useProgram(programeInfo.program)
+  webglUtils.setUniforms(programeInfo, Object.assign({}, o.uniforms, {
+    u_view: viewMatrix,
+    u_projection: projectionMatrix,
+    u_image: texture,
+    u_reverseLightDirection: u_reverseLightDirection,
+    u_textureMatrix: textureMatrix,
+    u_projectedTexture: depthTexture,
+    // u_waveShadowTexture: waveShadowTextureParams.targetTexture
+    u_waveShadowTexture: outputTexture.texture,
+  }))
+  webglUtils.setBuffersAndAttributes(gl, programeInfo, o.buffer)
+  gl.drawArrays(gl.TRIANGLES, 0, o.buffer.numElements)
 }
 
 addViewEvent(gl, camera, () => {})

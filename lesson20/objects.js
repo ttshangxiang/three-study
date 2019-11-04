@@ -124,20 +124,19 @@ export default function getObjects (gl) {
   ]
 
   // 球一个
-  const sphere = new SphereGeometry(10, 64, 32)
+  const sphereRadius = 20
+  const sphere = new SphereGeometry(sphereRadius, 64, 32)
   const sphereBuffer = webglUtils.createBufferInfoFromArrays(gl, {
     position: { numComponents: 3, data: sphere.pointsData},
     normal: { numComponents: 3, data: sphere.normalsData}
   })
   u_world = m4.identity()
-  u_world = m4.translate(u_world, 0, 10, 0)
   const sphereObj = {
     buffer: sphereBuffer,
     uniforms: {
-      u_no_texture: 0.0,
-      u_world,
-      u_color: [0.9, 0.9, 0.9, 1.0]
-    }
+      u_world
+    },
+    sphereRadius
   }
 
   return {

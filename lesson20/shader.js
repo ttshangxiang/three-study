@@ -19,6 +19,19 @@ vec2 intersectAABB(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax) {
     return vec2(tNear, tFar);
 }
 
+float intersectSphere(vec3 origin, vec3 ray, vec3 sphereCenter, float sphereRadius) {
+  vec3 toSphere = origin - sphereCenter;
+  float a = dot(ray, ray);
+  float b = 2.0 * dot(toSphere, ray);
+  float c = dot(toSphere, toSphere) - sphereRadius * sphereRadius;
+  float discriminant = b*b - 4.0*a*c;
+  if (discriminant > 0.0) {
+    float t = (-b - sqrt(discriminant)) / (2.0 * a);
+    if (t > 0.0) return t;
+  }
+  return 1.0e6;
+}
+
 float rand(vec2 co){
   return fract(sin(dot(co.xy, vec2(12.9898,78.233))) * 43758.5453);
 }
@@ -99,7 +112,7 @@ float setShadow (vec4 v_projectedTexcoord, sampler2D u_projectedTexture) {
   // 阴影部分
   vec3 projectedTexcoord = v_projectedTexcoord.xyz / v_projectedTexcoord.w;
 
-  float currentDepth = projectedTexcoord.z;
+  float currentDepth = projectedTexcoord.z + 0.001;
   bool inRange =
       projectedTexcoord.x >= 0.0 &&
       projectedTexcoord.x <= 1.0 &&
@@ -146,10 +159,8 @@ float getWaveLight (vec3 position, vec3 u_reverseLightDirection, sampler2D u_wav
 }
 
 // 光线
-vec4 setLight (vec3 position, vec3 v_normal, vec3 u_reverseLightDirection, sampler2D u_waveShadowTexture, sampler2D u_image,
+vec4 setLight (vec4 color, vec3 position, vec3 v_normal, vec3 u_reverseLightDirection, sampler2D u_waveShadowTexture, sampler2D u_image,
   vec4 v_projectedTexcoord, sampler2D u_projectedTexture) {
-  
-  vec4 color = getWallColor(position, u_image);
     
   // 水下区域染蓝色
   vec2 coord = vec2(position.x / 200.0 + 0.5, -position.z / 200.0 + 0.5);
@@ -240,7 +251,8 @@ export const tilesShader = {
   ${functions}
   
   void main() {
-    gl_FragColor = setLight(v_position.xyz, v_normal, u_reverseLightDirection, u_waveShadowTexture, u_image, v_projectedTexcoord, u_projectedTexture);
+    vec4 origin = getWallColor(v_position.xyz, u_image);
+    gl_FragColor = setLight(origin, v_position.xyz, v_normal, u_reverseLightDirection, u_waveShadowTexture, u_image, v_projectedTexcoord, u_projectedTexture);
   }
   `
 }
@@ -289,32 +301,39 @@ export const waterShader = {
   uniform mat4 u_textureMatrix;
   uniform sampler2D u_waveShadowTexture;
 
+  uniform vec3 u_sphereCenter;
+  uniform float u_sphereRadius;
+
   varying vec3 v_worldNormal;
   varying vec2 v_texcoord;
   varying vec3 v_worldPosition;
   ${functions}
 
   vec4 getColor (vec3 origin, vec3 ray, bool isAboveWater) {
-    vec2 t = intersectAABB(origin, ray, vec3(-100, 0, -100), vec3(100, 200, 100));
-    vec3 hit = origin + ray * t.y;
-    if (hit.y > 79.999) {
-      return textureCube(u_skybox, ray);
+    // 球
+    vec3 sphereCenter = vec3(0, 20.0, 0);
+    float q = intersectSphere(origin, ray, u_sphereCenter, u_sphereRadius);
+    vec4 color;
+    vec3 hit;
+    vec3 normal;
+    if (q < 1.0e6) {
+      color = vec4(1.0, 1.0, 1.0, 1.0);
+      hit = origin + ray * q;
+      normal = normalize(origin - sphereCenter);
     } else {
-      vec4 color = getWallColor(hit, u_image);
-      if (hit.y < 60.001) {
-        if (isAboveWater) {
-          color.rgb *= vec3(0.25, 1.0, 1.25);
-        } else {
-          color.rgb *= vec3(0.4, 0.9, 1.0);
-        }
+      // 墙
+      vec2 t = intersectAABB(origin, ray, vec3(-100, 0, -100), vec3(100, 200, 100));
+      hit = origin + ray * t.y;
+      if (hit.y > 79.999) {
+        return textureCube(u_skybox, ray);
+      } else {
+        normal = getWallNormal(hit);
+        color = getWallColor(hit, u_image);
       }
-
-      // 添加颜色
-      vec3 normal = getWallNormal(hit);
-      vec4 projectedTexcoord = u_textureMatrix * vec4(hit, 1.0);
-      return setLight(hit, normal, u_reverseLightDirection, u_waveShadowTexture, u_image, projectedTexcoord, u_projectedTexture);
-
     }
+
+    vec4 projectedTexcoord = u_textureMatrix * vec4(hit, 1.0);
+    return setLight(color, hit, normal, u_reverseLightDirection, u_waveShadowTexture, u_image, projectedTexcoord, u_projectedTexture);
 
   }
   
@@ -400,6 +419,55 @@ export const skycubeShader = {
   void main() {
     vec4 t = u_viewDirectionProjectionInverse * v_position;
     gl_FragColor = textureCube(u_skybox, normalize(t.xyz / t.w));
+  }
+  `
+}
+
+// 球
+
+export const sphereShader = {
+  vertex: `
+  attribute vec4 a_position;
+  attribute vec3 a_normal;
+  attribute vec2 a_texcoord;
+  
+  uniform mat4 u_projection;
+  uniform mat4 u_view;
+  uniform mat4 u_world;
+  uniform mat4 u_textureMatrix;
+  
+  varying vec3 v_normal;
+  varying vec2 v_texcoord;
+  varying vec4 v_position;
+  ${shadowVertexDefine}
+  
+  void main() {
+    gl_Position = u_projection * u_view * u_world * a_position;
+  
+    v_normal = mat3(u_world) * a_normal;
+    v_texcoord = a_texcoord;
+    v_position = u_world * a_position;
+
+    ${shadowVertex}
+  }
+  `,
+  fragment: `
+  precision mediump float;
+  
+  uniform vec3 u_reverseLightDirection;
+  uniform sampler2D u_image;
+  uniform vec4 u_color;
+  uniform sampler2D u_waveShadowTexture;
+  
+  varying vec3 v_normal;
+  varying vec2 v_texcoord;
+  varying vec4 v_position;
+  ${shadowFragment}
+  ${functions}
+  
+  void main() {
+    vec4 origin = vec4(1.0, 1.0, 1.0, 1.0);
+    gl_FragColor = setLight(origin, v_position.xyz, v_normal, u_reverseLightDirection, u_waveShadowTexture, u_image, v_projectedTexcoord, u_projectedTexture);
   }
   `
 }
