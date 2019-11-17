@@ -1,4 +1,9 @@
 
+import perlin from './materials/perlin.js';
+import perlin3d from './materials/perlin3d.js';
+import celluar from './materials/celluar.js';
+import celluar3d from './materials/celluar3d.js';
+
 // 场景
 const scene = new THREE.Scene();
 // 相机
@@ -11,75 +16,102 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 
 document.body.appendChild(renderer.domElement);
 
-const material = new THREE.ShaderMaterial({
-  uniforms: {
-    u_time: {value: 1.0}
-  },
-  vertexShader: `
-  varying vec4 v_position;
-  void main () {
-    v_position = modelMatrix * vec4( position, 1.0 );
-    gl_Position = projectionMatrix * viewMatrix * v_position;
-  }
-  `,
-  fragmentShader: `
-  varying vec4 v_position;
-  uniform float u_time;
-
-  // 输入网格顶点位置，输出随机向量
-  vec2 random(vec2 p){
-      return  -1.0 + 2.0 * fract(
-          sin(
-              vec2(
-                  dot(p, vec2(127.1,311.7)),
-                  dot(p, vec2(269.5,183.3))
-              )
-          ) * 43758.5453
-      );
-  }
-  float noise_perlin (vec2 p) {
-    vec2 i = floor(p); // 获取当前网格索引i
-    vec2 f = fract(p); // 获取当前片元在网格内的相对位置
-    // 计算梯度贡献值
-    float a = dot(random(i),f); // 梯度向量与距离向量点积运算
-    float b = dot(random(i + vec2(1., 0.)),f - vec2(1., 0.));
-    float c = dot(random(i + vec2(0., 1.)),f - vec2(0., 1.));
-    float d = dot(random(i + vec2(1., 1.)),f - vec2(1., 1.));
-    // 平滑插值
-    vec2 u = smoothstep(0.,1.,f);
-    // 叠加四个梯度贡献值
-    return mix(mix(a,b,u.x),mix(c,d,u.x),u.y);
-  }
-  // 乘以4，叠加5次的分形噪声
-  float fbm_noise(vec2 p)
-  {
-    float f = 0.0;
-    p = p * 4.0;
-    float a = 1.;
-    for (int i = 0; i < 5; i++)
-    {
-      f += a * noise_perlin(p);
-      p = 4.0 * p;
-      a /= 4.;
-    }
-    return f;
-  }
-  void main () {
-    float n = fbm_noise(v_position.xy);
-    gl_FragColor = vec4(n, n, n, 1.0);
-  }
-  `
-});
-
+const material = perlin;
 const geometry = new THREE.PlaneBufferGeometry(10, 10, 1, 1); 
 const plane = new THREE.Mesh(geometry, material);
+plane.onBeforeRender = (renderer, scene, camera, geometry, material, group) => {
+  material.uniforms = Object.assign(material.uniforms, {
+    u_time: {value: renderTime / 1000},
+    u_fbm: {value: controls.u_fbm},
+    u_fbm_abs: {value: controls.u_fbm_abs},
+    u_domain_wraping: {value: controls.u_domain_wraping},
+    u_invert: {value: controls.u_invert},
+    u_dry: {value: controls.u_dry},
+  })
+}
 scene.add(plane);
 
 camera.position.set(0, 0, 20);
 camera.lookAt(0, 0, 0);
 
+// gui
+const gui = new dat.GUI()
+const controls = new function () {
+  this.type = 'perlin';
+  this.u_fbm = false;
+  this.u_fbm_abs = false;
+  this.u_domain_wraping = false;
+  this.u_invert = false;
+  this.u_dry = false;
+}
+gui.add(controls, 'type', [
+  'perlin',
+  'perlin-fbm',
+  'perlin-fbm-abs',
+  'domain-wraping',
+  'perlin3d',
+  'perlin3d-fbm',
+  'perlin3d-fbm-abs',
+  'celluar',
+  'celluar-invert',
+  'celluar-dry',
+  'celluar3d',
+  'celluar3d-invert',
+  'celluar3d-dry'
+]).onChange(value => {
+  if (['perlin', 'perlin-fbm', 'perlin-fbm-abs', 'domain-wraping'].includes(value)) {
+    plane.material = perlin;
+    controls.u_fbm = false;
+    controls.u_fbm_abs = false;
+    controls.u_domain_wraping = false;
+    if (value == 'perlin-fbm') {
+      controls.u_fbm = true;
+    }
+    if (value == 'perlin-fbm-abs') {
+      controls.u_fbm_abs = true;
+    }
+    if (value == 'domain-wraping') {
+      controls.u_domain_wraping = true;
+    }
+  }
+  if (['perlin3d', 'perlin3d-fbm', 'perlin3d-fbm-abs'].includes(value)) {
+    plane.material = perlin3d;
+    controls.u_fbm = false;
+    controls.u_fbm_abs = false;
+    if (value == 'perlin3d-fbm') {
+      controls.u_fbm = true;
+    }
+    if (value == 'perlin3d-fbm-abs') {
+      controls.u_fbm_abs = true;
+    }
+  }
+  if (['celluar', 'celluar-invert', 'celluar-dry'].includes(value)) {
+    plane.material = celluar;
+    controls.u_invert = false;
+    controls.u_dry = false;
+    if (value == 'celluar-invert') {
+      controls.u_invert = true;
+    }
+    if (value == 'celluar-dry') {
+      controls.u_dry = true;
+    }
+  }
+  if (['celluar3d', 'celluar3d-invert', 'celluar3d-dry'].includes(value)) {
+    plane.material = celluar3d;
+    controls.u_invert = false;
+    controls.u_dry = false;
+    if (value == 'celluar3d-invert') {
+      controls.u_invert = true;
+    }
+    if (value == 'celluar3d-dry') {
+      controls.u_dry = true;
+    }
+  }
+})
+
+let renderTime = 0;
 function render (time) {
-  plane.material.uniforms.u_time.value = time;
+  renderTime = time;
   requestAnimationFrame(render);
   renderer.render(scene, camera);
 }
