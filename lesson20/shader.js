@@ -152,16 +152,16 @@ float getWaveLight (vec3 position, vec3 u_reverseLightDirection, sampler2D u_wav
   vec2 t = intersectAABB(position.xyz, ray, vec3(-100.0, 60.0, -100.0), vec3(100.0, 60.1, 100.0));
   if (t.y > t.x) {
     vec3 hit = position.xyz + ray * t.x;
-    vec4 info = texture2D(u_waveShadowTexture, vec2(hit.x / 200.0 + 0.5, -hit.z / 200.0 + 0.5));
-    // return info.r * 200.0 * 0.5;
+    vec2 c = vec2(hit.x / 200.0 + 0.5, -hit.z / 200.0 + 0.5);
+    vec4 info = texture2D(u_waveShadowTexture, c);
     vec3 normal = vec3(info.b, sqrt(1.0 - dot(info.ba, info.ba)), info.a);
     float light = max(1.0 - dot(normal, vec3(0, 1.0, 0)), 0.0);
-    // light *= info.r * 200.0;
-    light = pow(light, 1.0 / 2.0);
-    if (light > 0.0) {
-      light *= 1.5;
+    float h = info.r * 200.0;
+    if (h > -0.001 && h < 0.001) {
+      return 0.0;
     }
-    return light;
+    light = pow(light, 1./3.);
+    return -light;
   }
   return 0.0;
 }
