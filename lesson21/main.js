@@ -1,245 +1,209 @@
 
-// 添加canvas
-const canvas = document.createElement('canvas')
-canvas.width = window.innerWidth
-canvas.height = window.innerHeight
-document.body.appendChild(canvas)
+// 场景
+const scene = new THREE.Scene();
+// 相机
+const camera = new THREE.PerspectiveCamera(
+  45, window.innerWidth / window.innerHeight, 1, 2000
+);
+// 渲染器
+const renderer = new THREE.WebGLRenderer({antialias: true});
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true
 
-// 获取gl
-const gl = canvas.getContext('webgl', { antialias: true })
-if (!gl) {
-  throw Error('gl都获取不到')
-}
+document.body.appendChild(renderer.domElement);
 
-// 打开深度纹理扩展
-const ext = gl.getExtension('WEBGL_depth_texture')
-if (!ext) {
-  throw Error('need WEBGL_depth_texture')
-}
-
-// 纹理开启gl.FLOAT的type
-gl.getExtension('OES_texture_float')
-gl.getExtension('OES_texture_float_linear')
-
-const shader = {
-  vertex: `
-  attribute vec4 a_position;
-  varying vec2 coord;
-  void main() {
-    coord = a_position.xy * 0.5 + 0.5;
-    gl_Position = vec4(a_position.xy, 0.0, 1.0);
+const material = new THREE.ShaderMaterial({
+  transparent: true,
+  vertexShader: `
+  uniform mat4 u_face_mat;
+  varying vec4 v_position;
+  varying vec2 v_uv;
+  void main () {
+    v_position =  modelMatrix * u_face_mat * vec4( position, 1.0 );
+    gl_Position = projectionMatrix * viewMatrix * v_position;
+    v_uv = uv;
   }
   `,
-  fragment: `
-  precision highp float;
-  uniform sampler2D texture;
-  varying vec2 coord;
-  void main() {
-    /* get vertex info */
-    vec4 info = texture2D(texture, coord);
-    gl_FragColor = info;
+  fragmentShader: `
+  uniform float u_time;
+  uniform float u_strength;
+  uniform float u_speed;
+  uniform float u_width;
+  
+  varying vec4 v_position;
+  varying vec2 v_uv;
+
+  vec2 hash( vec2 p )
+  {
+    p = vec2( dot(p,vec2(127.1,311.7)),
+        dot(p,vec2(269.5,183.3)) );
+    return -1.0 + 2.0*fract(sin(p)*43758.5453123);
+  }
+
+  float noise( in vec2 p )
+  {
+    const float K1 = 0.366025404; // (sqrt(3)-1)/2;
+    const float K2 = 0.211324865; // (3-sqrt(3))/6;
+    
+    vec2 i = floor( p + (p.x+p.y)*K1 );
+    
+    vec2 a = p - i + (i.x+i.y)*K2;
+    vec2 o = (a.x>a.y) ? vec2(1.0,0.0) : vec2(0.0,1.0);
+    vec2 b = a - o + K2;
+    vec2 c = a - 1.0 + 2.0*K2;
+    
+    vec3 h = max( 0.5-vec3(dot(a,a), dot(b,b), dot(c,c) ), 0.0 );
+    
+    vec3 n = h*h*h*h*vec3( dot(a,hash(i+0.0)), dot(b,hash(i+o)), dot(c,hash(i+1.0)));
+    
+    return dot( n, vec3(70.0) );
+  }
+
+  float fbm(vec2 uv)
+  {
+    float f;
+    mat2 m = mat2( 1.6,  1.2, -1.2,  1.6 );
+    f  = 0.5000*noise( uv ); uv = m*uv;
+    f += 0.2500*noise( uv ); uv = m*uv;
+    f += 0.1250*noise( uv ); uv = m*uv;
+    f += 0.0625*noise( uv ); uv = m*uv;
+    f = 0.5 + 0.5*f;
+    return f;
+  }
+
+  void main () {
+    // vec2 uv = fragCoord.xy / iResolution.xy;
+    vec2 uv = v_uv;
+    vec2 q = uv;
+    q.x *= 1.0 / u_width;
+    q.y *= 2.;
+    // float strength = floor(q.x+1.); // 变形强度
+    float strength = u_strength;
+    // float T3 = max(3.,1.25*strength)*iTime; // 时间影响
+    float T3 = max(3.,1.25*strength)*(u_time * u_speed / 1000.);
+    // q.x = mod(q.x,1.)-0.5; // x位置
+    q.x -= 0.5 / u_width;
+    q.y -= 1.1;
+    float n = fbm(strength*q - vec2(0,T3));
+    float c = 1. - 16. * pow( max( 0., length(q*vec2(1.8+q.y*1.5,.75) ) - n * max( 0., q.y+.25 ) ),1.2 );
+  //	float c1 = n * c * (1.5-pow(1.25*uv.y,4.)); // 这里可以调整显示的高度
+    float c1 = n * c * (1.5-pow(1.0*uv.y,4.));
+    c1=clamp(c1,0.,1.);
+
+    vec3 col = vec3(1.5*c1, 1.5*c1*c1*c1, c1*c1*c1*c1*c1*c1);
+    
+    // col = col.zyx;
+    // col = 0.85*col.yxz;
+  // #ifdef BLUE_FLAME
+  //   col = col.zyx;
+  // #endif
+  // #ifdef GREEN_FLAME
+  //   col = 0.85*col.yxz;
+  // #endif
+    
+    float a = c * (1.-pow(uv.y,3.));
+    gl_FragColor = vec4( mix(vec3(0.),col,a), 1.0);
+    gl_FragColor.a = gl_FragColor.x + gl_FragColor.y + gl_FragColor.z;
   }
   `
-}
+});
 
-const waveShader = {
-  vertex: `
-  attribute vec4 a_position;
-  varying vec2 coord;
-  void main() {
-    coord = a_position.xy * 0.5 + 0.5;
-    gl_Position = vec4(a_position.xy, 0.0, 1.0);
-  }
-  `,
-  fragment: `
-  precision highp float;
-  const float PI = 3.141592653589793;
-  uniform sampler2D texture;
-  uniform vec2 center;
-  uniform float radius;
-  uniform float strength;
-  varying vec2 coord;
-  void main() {
-    // /* get vertex info */
-    // vec4 info = texture2D(texture, coord);
+function createCandle () {
+  const geometry = new THREE.PlaneBufferGeometry(10, 10, 1, 1); 
+  const plane = new THREE.Mesh(geometry, material);
+  plane.position.setY(3.5);
+  plane.onBeforeRender = (renderer, scene, camera, geometry, material, group) => {
     
-    // /* add the drop to the height */
-    // float drop = max(0.0, 1.0 - length(center * 0.5 + 0.5 - coord) / radius);
-    // drop = 0.5 - cos(drop * PI) * 0.5;
-    // info.r += drop * strength;
-    
-    // gl_FragColor = info;
-    gl_FragColor = vec4(center * 0.5 + 0.5, 1.0, 1.0);
+    // 火是2d的，所以侧面看不到，调整Y轴面向摄像机
+    const v = new THREE.Vector3().subVectors(camera.position, plane.position);
+    v.setY(0);
+    v.normalize();
+    const n = new THREE.Vector3(0, 0, 1);
+    let angle = Math.acos(n.dot(v));
+    if (v.x < 0) {
+      angle *= -1;
+    }
+    var face_mat = new THREE.Matrix4();
+    face_mat.makeRotationY(angle);
+
+    material.uniforms = Object.assign(material.uniforms, {
+      u_time: {value: renderTime},
+      u_strength: {value: controls.strength},
+      u_speed: {value: controls.speed},
+      u_width: {value: controls.width},
+      u_face_mat: {value: face_mat}
+    })
   }
-  `
+
+  // 点光源
+  var light = new THREE.PointLight( 0xcccccc, 1, 30);
+  light.position.set(0, 3, 0);
+  // 阴影
+  light.castShadow = true
+  light.shadow.mapSize.width = 1024
+  light.shadow.mapSize.height = 1024
+  plane.add( light );
+
+  // 装模作样弄个柱子
+  const cylinderGeometry = new THREE.CylinderBufferGeometry( 0.3, 0.3, 6, 32 );
+  const cylinderMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0xffffff,
+    emissive: 0x0,
+    roughness: 1,
+    metalness: 0,
+    reflectivity: 1
+  });
+  const cylinder = new THREE.Mesh( cylinderGeometry, cylinderMaterial );
+  cylinder.position.setY(3);
+  cylinder.castShadow = true;
+  cylinder.add(plane);
+  return cylinder;
 }
 
-// 获取着色器
-const programInfo = webglUtils.createProgramInfo(gl, [shader.vertex, shader.fragment])
-const waveShaderInfo = webglUtils.createProgramInfo(gl, [waveShader.vertex, waveShader.fragment])
+const candle = createCandle();
+candle.position.setX(-8);
+scene.add(candle);
+const candle2 = createCandle();
+candle2.position.setX(8);
+scene.add(candle2);
 
-const plane = {
-  position: {
-    numComponents: 2,
-    data: [
-      -1, 1,
-      -1, -1,
-      1, -1,
-      -1, 1,
-      1, -1,
-      1, 1
-    ]
-  }
+// 地板
+const floorGeometry = new THREE.PlaneBufferGeometry(100, 100, 1, 1);
+const floorMaterial = new THREE.MeshPhysicalMaterial({
+  color: 0xffffff,
+  emissive: 0x0,
+  roughness: 1,
+  metalness: 0,
+  reflectivity: 1
+});
+const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+floor.receiveShadow = true
+floor.rotateX(-Math.PI / 2);
+scene.add(floor);
+
+camera.position.set(0, 20, 30);
+const target = new THREE.Vector3(0, 0, 0);
+camera.lookAt(target);
+
+// gui
+const gui = new dat.GUI()
+const controls = new function () {
+  this.strength = 3;
+  this.speed = 1;
+  this.width = 0.2;
 }
+gui.add(controls, 'strength', 0.1, 10).step(0.1);
+gui.add(controls, 'speed', 0.1, 2).step(0.1);
+gui.add(controls, 'width', 0.1, 2).step(0.1);
 
-const planeBuffer = webglUtils.createBufferInfoFromArrays(gl, plane)
+import addViewEvent from './view.js';
+addViewEvent(renderer.domElement, camera, new THREE.Vector3(0, 0, 0));
 
-function createWaterTexture(gl, name) {
-
-  // 创建渲染对象
-  const targetTextureWidth = 256;
-  const targetTextureHeight = 256;
-  const targetTexture = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, targetTexture);
-
-  // 定义 0 级的大小和格式
-  const level = 0;
-  const internalFormat = gl.RGBA;
-  const border = 0;
-  const format = gl.RGBA;
-  const type = gl.FLOAT;
-  // const type = gl.UNSIGNED_BYTE;
-  const data = null;
-  gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
-    targetTextureWidth, targetTextureHeight, border,
-    format, type, data);
-
-  // 设置筛选器，不需要使用贴图
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-
-  // 创建并绑定帧缓冲
-  const fb = gl.createFramebuffer();
-  gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
-
-  // 附加纹理为第一个颜色附件
-  const attachmentPoint = gl.COLOR_ATTACHMENT0;
-  gl.framebufferTexture2D(gl.FRAMEBUFFER, attachmentPoint, gl.TEXTURE_2D, targetTexture, level);
-
-  return {
-    name,
-    texture: targetTexture,
-    width: targetTextureWidth,
-    height: targetTextureHeight,
-    fb
-  }
+let renderTime = 0;
+function render (time) {
+  renderTime = time;
+  requestAnimationFrame(render);
+  renderer.render(scene, camera);
 }
+render();
 
-function degToRad(d) {
-  return d * Math.PI / 180;
-}
-
-let textureA = createWaterTexture(gl, 'A')
-let textureB = createWaterTexture(gl, 'B')
-
-// 交换着来
-function swapTexture () {
-  let temp = textureA
-  textureA = textureB
-  textureB = temp
-}
-
-// 添加波纹
-function addDrop (x, y, radius, strength) {
-  console.log(x, y, radius, strength)
-  console.log(textureB.name)
-  var v = gl.getParameter(gl.VIEWPORT);
-  
-  gl.bindFramebuffer(gl.FRAMEBUFFER, textureB.fb)
-  gl.viewport(0, 0, textureB.width, textureB.height)
-
-  gl.useProgram(waveShaderInfo.program)
-  webglUtils.setUniforms(waveShaderInfo, {
-    texture: textureA.texture,
-    center: [x, y],
-    radius: radius,
-    strength: strength
-  })
-  webglUtils.setBuffersAndAttributes(gl, waveShaderInfo, planeBuffer)
-  gl.drawArrays(gl.TRIANGLES, 0, planeBuffer.numElements)
-  
-  swapTexture()
-  gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-  gl.viewport(v[0], v[1], v[2], v[3])
-
-  return textureA
-}
-
-gl.canvas.addEventListener('mousedown', e => {
-  const {pageX, pageY} = e
-  const x = pageX / gl.canvas.width * 2 - 1
-  const y = -(pageY / gl.canvas.height * 2 - 1)
-  addDrop(x, y, 0.03, 1)
-})
-
-function createAndSetupTexture(gl) {
-  var texture = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-
-  return texture;
-}
-
-// Create a texture.
-var texture = createAndSetupTexture(gl)
-var image = new Image();
-var imageLoaded = false
-image.src = "./tiles.jpg";
-image.addEventListener('load', function () {
-  gl.bindTexture(gl.TEXTURE_2D, texture)
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image)
-  gl.generateMipmap(gl.TEXTURE_2D)
-  imageLoaded = true
-})
-
-// 绘制场景
-let then = 0;
-function render(time) {
-  time *= 0.001;
-  const deltaTime = time - then;
-  then = time;
-  // 重置尺寸
-  webglUtils.resizeCanvasToDisplaySize(gl.canvas)
-  // 隐藏背面
-  gl.enable(gl.CULL_FACE);
-  // 开启深度测试
-  gl.enable(gl.DEPTH_TEST);
-  // 背景
-  gl.clearColor(0, 0, 0, 1)
-
-  // 绘制到场景
-  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-
-  gl.useProgram(programInfo.program)
-  webglUtils.setUniforms(programInfo, {
-    texture: textureA.texture
-  })
-  webglUtils.setBuffersAndAttributes(gl, programInfo, planeBuffer)
-  gl.drawArrays(gl.TRIANGLES, 0, planeBuffer.numElements)
-
-}
-
-function run(time) {
-  render(time)
-  requestAnimationFrame(run)
-}
-
-run()

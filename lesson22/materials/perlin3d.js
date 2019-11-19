@@ -14,6 +14,7 @@ export default new THREE.ShaderMaterial({
   uniform float u_time;
   uniform bool u_fbm;
   uniform bool u_fbm_abs;
+  uniform bool u_domain_wraping;
   varying vec4 v_position;
   varying vec2 v_uv;
   ${random}
@@ -73,6 +74,18 @@ export default new THREE.ShaderMaterial({
     return f;
   }
 
+  // 翘曲域
+  // 翘曲域噪声用来模拟卷曲、螺旋状的纹理，比如烟雾、大理石等，实现公式如下：
+  // f(p) = fbm( p + fbm( p + fbm( p ) ) )
+  float domain_wraping( vec3 p )
+  {
+    vec3 q = vec3(fbm_noise(p));
+    vec3 r = vec3(fbm_noise(p + q));
+    // 还可以再累加
+    vec3 s = vec3(fbm_noise(p + r));
+    return fbm_noise( p + s );
+  }
+
   void main () {
     vec3 p = vec3(v_uv, u_time / 10.0);
     float n;
@@ -80,6 +93,8 @@ export default new THREE.ShaderMaterial({
       n = fbm_noise(p);
     } else if (u_fbm_abs) {
       n = fbm_noise_abs(p);
+    } else if (u_domain_wraping) {
+      n = domain_wraping(p);
     } else {
       n = noise_perlin3(vec3(p.xy * 4.0, u_time));
     }

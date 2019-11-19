@@ -68,8 +68,8 @@ export default new THREE.ShaderMaterial({
   // f(p) = fbm( p + fbm( p + fbm( p ) ) )
   float domain_wraping( vec2 p )
   {
-    vec2 q = vec2( fbm_noise(p), fbm_noise(p) );
-    vec2 r = vec2( fbm_noise(p + q), fbm_noise(p + q) );
+    vec2 q = vec2(fbm_noise(p));
+    vec2 r = vec2(fbm_noise(p + q));
     return fbm_noise( p + r );
   }
 

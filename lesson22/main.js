@@ -48,18 +48,20 @@ gui.add(controls, 'type', [
   'perlin',
   'perlin-fbm',
   'perlin-fbm-abs',
-  'domain-wraping',
+  'perlin-domain-wraping',
   'perlin3d',
   'perlin3d-fbm',
   'perlin3d-fbm-abs',
+  'perlin3d-domain-wraping',
   'celluar',
   'celluar-invert',
   'celluar-dry',
   'celluar3d',
   'celluar3d-invert',
   'celluar3d-dry'
-]).onChange(value => {
-  if (['perlin', 'perlin-fbm', 'perlin-fbm-abs', 'domain-wraping'].includes(value)) {
+]).onChange(typeChange)
+function typeChange (value) {
+  if (['perlin', 'perlin-fbm', 'perlin-fbm-abs', 'perlin-domain-wraping'].includes(value)) {
     plane.material = perlin;
     controls.u_fbm = false;
     controls.u_fbm_abs = false;
@@ -70,19 +72,23 @@ gui.add(controls, 'type', [
     if (value == 'perlin-fbm-abs') {
       controls.u_fbm_abs = true;
     }
-    if (value == 'domain-wraping') {
+    if (value == 'perlin-domain-wraping') {
       controls.u_domain_wraping = true;
     }
   }
-  if (['perlin3d', 'perlin3d-fbm', 'perlin3d-fbm-abs'].includes(value)) {
+  if (['perlin3d', 'perlin3d-fbm', 'perlin3d-fbm-abs', 'perlin3d-domain-wraping'].includes(value)) {
     plane.material = perlin3d;
     controls.u_fbm = false;
     controls.u_fbm_abs = false;
+    controls.u_domain_wraping = false;
     if (value == 'perlin3d-fbm') {
       controls.u_fbm = true;
     }
     if (value == 'perlin3d-fbm-abs') {
       controls.u_fbm_abs = true;
+    }
+    if (value == 'perlin3d-domain-wraping') {
+      controls.u_domain_wraping = true;
     }
   }
   if (['celluar', 'celluar-invert', 'celluar-dry'].includes(value)) {
@@ -107,7 +113,7 @@ gui.add(controls, 'type', [
       controls.u_dry = true;
     }
   }
-})
+} 
 
 let renderTime = 0;
 function render (time) {
