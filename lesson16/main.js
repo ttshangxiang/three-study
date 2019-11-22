@@ -254,8 +254,8 @@ function drawScene (programInfo, viewMatrix, cameraPosition, projectionMatrix, t
     const matrix = m4.multiply(projectionMatrix, viewMatrix);
     objects.forEach(item => {
       const u_world = item.param.u_world
-      const point = m4.transformPoint(matrix, [u_world[12], u_world[13], u_world[14]])
-      item.depth = point[2]
+      const point = m4.transformPoint(viewMatrix, [u_world[12], u_world[13], u_world[14]])
+      item.depth = -point[2]
     })
     objects.sort((a, b) => {
       return b.depth - a.depth;

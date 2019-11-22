@@ -4,7 +4,7 @@ renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.domElement.id = 'main'
 document.body.appendChild(renderer.domElement)
 
-const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 1, 1000)
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000)
 camera.position.y = 10
 
 const scene = new THREE.Scene()
@@ -108,11 +108,13 @@ function scaleText (fontsize) {
   const direction = new THREE.Vector3()
   camera.getWorldDirection(direction)
   sprites.forEach(sprite => {
-    const v2 = sprite.position.clone().add(camera.position.clone().negate())
-    // 点乘
+    const v2 = new THREE.Vector3().subVectors(sprite.position, camera.position)
+    // 点乘计算投影距离
     const d = v2.dot(direction)
-    // 使用cos换算距离
-    const scale = fontsize * d / pxDistance
+    // 由于近大远小，计算出此时1px对应几单位
+    let unit = d / pxDistance;
+    // 现在需要显示fontsize个px，则需要乘以fontsize
+    const scale = unit * fontsize;
     sprite.scale.set(scale, scale, scale)
   })
 }
